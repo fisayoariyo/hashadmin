@@ -81,7 +81,14 @@ export default function AdminAgentEnrolledFarmersPage() {
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setQuery(v);
+              if (!v.trim()) {
+                setLoadMoreSteps(0);
+                setSearchApplied("");
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 setLoadMoreSteps(0);

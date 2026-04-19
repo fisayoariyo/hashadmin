@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Flag, Pencil, UserRoundSearch } from "lucide-react";
+import { ArrowLeft, CircleX, Pencil, UserRoundSearch } from "lucide-react";
+import DeactivateFarmerConfirmModal from "@/components/admin/DeactivateFarmerConfirmModal";
 import cardPattern from "@/assets/comps/card-pattern-desktop.svg";
 import { getAdminFarmerDetail, type AdminFarmerDetail } from "@/mockData/adminFarmers";
 
@@ -13,7 +14,7 @@ function FarmerDigitalIdCard({ detail }: { detail: AdminFarmerDetail }) {
   const sigFirst = idCard.agentName.split(/\s+/)[0] ?? idCard.agentName;
 
   return (
-    <div className="relative isolate mx-auto w-full max-w-[400px] overflow-hidden rounded-[22px] bg-[#00684a] text-white shadow-[0_16px_40px_rgba(0,72,52,0.35)] ring-1 ring-inset ring-white/10">
+    <div className="relative isolate w-full max-w-[360px] overflow-hidden rounded-[22px] bg-[#00684a] text-white shadow-[0_16px_40px_rgba(0,72,52,0.35)] ring-1 ring-inset ring-white/10">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 origin-center scale-[1.08] opacity-[0.5] contrast-[1.08]"
@@ -29,23 +30,16 @@ function FarmerDigitalIdCard({ detail }: { detail: AdminFarmerDetail }) {
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/12 via-transparent to-black/20" />
 
       <div className="relative z-10 px-5 pb-6 pt-6 [@media(max-height:760px)]:px-5 [@media(max-height:760px)]:pb-5 [@media(max-height:760px)]:pt-5">
-        <div className="flex items-center justify-center gap-2.5">
-          <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/35 [@media(max-height:760px)]:h-9 [@media(max-height:760px)]:w-9"
-            aria-hidden
-          >
-            <span className="font-display text-lg font-bold tracking-tight text-white [@media(max-height:760px)]:text-base">
-              H
-            </span>
-          </div>
-          <p className="text-left font-sans text-[10px] font-semibold uppercase leading-snug tracking-[0.16em] text-white/95 [@media(max-height:760px)]:text-[9px]">
-            HASHMAR
-            <br />
-            CROPEX LIMITED
-          </p>
+        <div className="flex items-center justify-center">
+          <img
+            src="/brand/HFEI_Horizontal_Logo.svg"
+            alt="HFEI by Hashmar"
+            className="h-8 w-auto [@media(max-height:760px)]:h-7"
+            draggable={false}
+          />
         </div>
 
-        <div className="mx-auto mt-4 flex h-[118px] w-[118px] shrink-0 overflow-hidden rounded-2xl ring-2 ring-white/30 [@media(max-height:760px)]:mt-3 [@media(max-height:760px)]:h-[96px] [@media(max-height:760px)]:w-[96px]">
+        <div className="mx-auto mt-3.5 flex h-[110px] w-[110px] shrink-0 overflow-hidden rounded-2xl ring-2 ring-white/30 [@media(max-height:760px)]:mt-3 [@media(max-height:760px)]:h-[90px] [@media(max-height:760px)]:w-[90px]">
           <img src={photoSrc} alt="" className="h-full w-full object-cover" />
         </div>
 
@@ -151,6 +145,7 @@ export default function AdminFarmerDetailPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") === "id" ? "id" : "details";
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
 
   const detail = getAdminFarmerDetail(decodeURIComponent(farmerId));
   if (!detail) {
@@ -178,6 +173,15 @@ export default function AdminFarmerDetailPage() {
           : "w-full space-y-6 pb-4"
       }
     >
+      <DeactivateFarmerConfirmModal
+        open={deactivateOpen}
+        onClose={() => setDeactivateOpen(false)}
+        onConfirm={() => {
+          setDeactivateOpen(false);
+          navigate("/farmers");
+        }}
+      />
+
       <div className="flex shrink-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 font-display text-[20px] font-bold leading-6 text-brand-text-primary">
@@ -194,42 +198,30 @@ export default function AdminFarmerDetailPage() {
         </div>
 
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-          {tab === "details" ? (
-            <>
-              <button
-                type="button"
-                onClick={() => navigate(`${base}/enrolling-agent`)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#03624D] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
-              >
-                <UserRoundSearch size={18} strokeWidth={1.9} />
-                View enrolling profile
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#03624D] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
-              >
-                <Flag size={18} strokeWidth={1.9} />
-                Flag profile
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(`${base}/edit`)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#03624D] px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99]"
-              >
-                <Pencil size={18} strokeWidth={1.9} />
-                Edit Details
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => navigate(`${base}/enrolling-agent`)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e4e4e4] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#f6f6f6]"
-            >
-              View enrolling profile
-              <UserRoundSearch size={18} strokeWidth={1.9} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => navigate(`${base}/enrolling-agent`)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#03624D] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
+          >
+            View enrolling profile
+            <UserRoundSearch size={18} strokeWidth={1.9} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeactivateOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#03624D] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
+          >
+            Deactivate
+            <CircleX size={18} strokeWidth={1.9} />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`${base}/edit`)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#03624D] px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99]"
+          >
+            Edit Details
+            <Pencil size={18} strokeWidth={1.9} />
+          </button>
         </div>
       </div>
 
@@ -301,9 +293,9 @@ export default function AdminFarmerDetailPage() {
           </InfoCard>
         </div>
       ) : (
-        <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-1">
+        <div className="flex min-h-0 w-full flex-1 flex-col items-start justify-start px-1">
           <div
-            className="flex w-full max-w-md flex-col items-stretch gap-3 origin-top [@media(max-height:820px)]:scale-[0.96] [@media(max-height:720px)]:scale-[0.9] [@media(max-height:640px)]:scale-[0.84] [@media(max-height:560px)]:scale-[0.78]"
+            className="flex w-full max-w-[360px] flex-col items-stretch gap-3 origin-top [@media(max-height:820px)]:scale-[0.94] [@media(max-height:720px)]:scale-[0.88] [@media(max-height:640px)]:scale-[0.82] [@media(max-height:560px)]:scale-[0.76]"
             style={{ transition: "transform 0.15s ease-out" }}
           >
             <FarmerDigitalIdCard detail={detail} />

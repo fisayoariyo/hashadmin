@@ -88,7 +88,11 @@ export default function AdminAgentsPage() {
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setQuery(v);
+              if (!v.trim()) setSearchApplied("");
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") setSearchApplied(query);
             }}
