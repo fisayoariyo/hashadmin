@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Filter, List, MoreVertical, Search } from "lucide-react";
+import { ChevronDown, Filter, List, MoreVertical, Search } from "lucide-react";
 import { adminAgentsList, type AdminAgentListRow } from "@/mockData/adminAgents";
 import { useNigeriaStateLga } from "@/hooks/useNigeriaStateLga";
 
 const selectClass =
-  "h-11 min-w-[140px] cursor-pointer rounded-xl border border-[#e4e4e4] bg-white px-3 font-sans text-sm text-brand-text-primary outline-none focus:border-[#03624D] focus:ring-1 focus:ring-[#03624D] sm:min-w-[160px]";
+  "h-9 min-w-[120px] cursor-pointer appearance-none rounded-lg border border-transparent bg-transparent py-2 pl-2 pr-8 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-white/70 focus:border-[#e4e4e4] focus:bg-white sm:min-w-[132px]";
 
 function matchesNameSearch(row: AdminAgentListRow, q: string) {
   if (!q.trim()) return true;
@@ -79,12 +79,11 @@ export default function AdminAgentsPage() {
 
   return (
     <div className="w-full pb-4">
-      <section className="space-y-5 rounded-[20px] border border-[#e4e4e4] bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="font-display text-[20px] font-bold leading-7 text-brand-text-primary">Agent Management</h2>
+      <h2 className="font-display text-[20px] font-bold leading-7 text-brand-text-primary">Agent Management</h2>
 
-      <div className="flex min-h-[52px] w-full items-stretch overflow-hidden rounded-full border border-[#e4e4e4] bg-white shadow-sm">
-        <div className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-2">
-          <Search size={20} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
+      <div className="mt-5 flex w-full items-center gap-2 sm:max-w-[520px]">
+        <div className="flex h-[44px] min-w-0 flex-1 items-center gap-3 rounded-full border border-[#e4e4e4] bg-white pl-4 pr-3">
+          <Search size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
           <input
             type="search"
             value={query}
@@ -103,61 +102,85 @@ export default function AdminAgentsPage() {
         <button
           type="button"
           onClick={() => setSearchApplied(query)}
-          className="m-1 shrink-0 self-center rounded-full bg-[#03624D] px-6 py-2.5 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99]"
+          className="h-[30px] shrink-0 rounded-full bg-[#03624D] px-8 font-sans text-xs font-semibold text-white transition hover:brightness-105 active:scale-[0.99]"
         >
           Search
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <span className="inline-flex items-center gap-2 font-sans text-sm font-medium text-brand-text-secondary">
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <span className="inline-flex items-center gap-1.5 font-sans text-sm font-medium text-brand-text-secondary">
           <Filter size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
           Filter
         </span>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className={selectClass}
-          aria-label="Status"
-        >
-          <option value="All">Status</option>
-          <option value="Active">Active</option>
-          <option value="Pending">Pending</option>
-          <option value="Inactive">Inactive</option>
-        </select>
-        <select
-          value={stateFilter}
-          onChange={(e) => {
-            setStateFilter(e.target.value);
-            setLgaFilter("All LGAs");
-          }}
-          className={selectClass}
-          aria-label="State"
-        >
-          {stateOptions.map((s) => (
-            <option key={s} value={s}>
-              {s === "All states" ? "State" : s}
-            </option>
-          ))}
-        </select>
-        <select
-          value={lgaFilter}
-          onChange={(e) => setLgaFilter(e.target.value)}
-          disabled={stateFilter === "All states"}
-          className={`${selectClass} disabled:cursor-not-allowed disabled:bg-[#fafafa] disabled:text-brand-text-muted`}
-          aria-label="Local Government Area"
-        >
-          {lgaOptions.map((l) => (
-            <option key={l} value={l}>
-              {l === "All LGAs" ? "LGA" : l}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className={selectClass}
+            aria-label="Status"
+          >
+            <option value="All">Status</option>
+            <option value="Active">Active</option>
+            <option value="Pending">Pending</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={stateFilter}
+            onChange={(e) => {
+              setStateFilter(e.target.value);
+              setLgaFilter("All LGAs");
+            }}
+            className={selectClass}
+            aria-label="State"
+          >
+            {stateOptions.map((s) => (
+              <option key={s} value={s}>
+                {s === "All states" ? "State" : s}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={lgaFilter}
+            onChange={(e) => setLgaFilter(e.target.value)}
+            disabled={stateFilter === "All states"}
+            className={`${selectClass} disabled:cursor-not-allowed disabled:bg-[#fafafa] disabled:text-brand-text-muted`}
+            aria-label="Local Government Area"
+          >
+            {lgaOptions.map((l) => (
+              <option key={l} value={l}>
+                {l === "All LGAs" ? "LGA" : l}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
+        </div>
       </div>
 
-      <div ref={tableRef} className="overflow-hidden rounded-[16px] border border-[#e8e8e8] bg-white">
+      <div ref={tableRef} className="mt-2 overflow-x-auto">
         <div
-          className={`${tableGrid} border-b border-[#ececec] bg-[#fafafa] px-4 py-3.5 text-left font-sans text-sm font-bold text-brand-text-primary`}
+          className={`${tableGrid} min-w-[760px] px-4 py-3.5 text-left font-sans text-sm font-bold text-brand-text-primary`}
         >
           <span>Name</span>
           <span>Phone number</span>
@@ -174,8 +197,8 @@ export default function AdminAgentsPage() {
           rows.map((row, i) => (
             <div
               key={row.id}
-              className={`${tableGrid} items-center border-b border-[#f0f0f0] px-4 py-3.5 text-sm last:border-b-0 ${
-                i % 2 === 1 ? "bg-[#fafafa]" : "bg-white"
+              className={`${tableGrid} min-w-[760px] items-center px-4 py-3.5 text-sm ${
+                i % 2 === 1 ? "bg-[#F6F6F6]" : "bg-transparent"
               }`}
             >
               <button
@@ -220,7 +243,6 @@ export default function AdminAgentsPage() {
           ))
         )}
       </div>
-      </section>
     </div>
   );
 }

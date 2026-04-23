@@ -15,7 +15,9 @@ function DetailField({ label, value }: { label: string; value: string | ReactNod
 function InfoCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-[20px] border border-[#f1f1f1] bg-white px-6 py-5">
-      <h3 className="mb-4 font-sans text-[34px] font-normal leading-none text-[#bababa]">{title}</h3>
+      <h3 className="mb-4 font-sans text-sm font-medium leading-5 text-[#9B9B9B]">
+        {title}
+      </h3>
       <div className="space-y-3.5">{children}</div>
     </section>
   );

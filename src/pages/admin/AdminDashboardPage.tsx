@@ -3,14 +3,11 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowUpRight,
   ChevronRight,
-  ClipboardList,
-  Inbox,
   MoreVertical,
   User,
-  UserCheck,
-  UserCog,
-  Users,
 } from "lucide-react";
+import userArrowLeftRightIcon from "@/assets/icons/admin-dashboard/user-arrow-left-right.svg";
+import tractorIcon from "@/assets/icons/admin-dashboard/tractor.svg";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 import {
   adminDashboardStats,
@@ -31,7 +28,7 @@ function SeeAllLink({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex shrink-0 items-center gap-1 font-sans text-sm font-semibold text-[#ea580c] hover:text-[#c2410c] hover:underline"
+      className="inline-flex shrink-0 items-center gap-1 font-sans text-sm font-semibold text-[#FFBB3C] hover:text-[#F2AA1F] hover:underline"
     >
       See all
       <ArrowUpRight size={16} strokeWidth={2} />
@@ -55,18 +52,34 @@ export default function AdminDashboardPage() {
   }, []);
 
   const statIcon = (key: (typeof adminDashboardStats)[number]["key"]) => {
-    const common = { strokeWidth: 1.75 as const, className: "text-white" };
+    const userIcon = (
+      <img
+        src={userArrowLeftRightIcon}
+        alt=""
+        aria-hidden
+        className="h-[27px] w-[27px] object-contain lg:h-[30px] lg:w-[30px]"
+      />
+    );
+    const tractorStatIcon = (
+      <img
+        src={tractorIcon}
+        alt=""
+        aria-hidden
+        className="h-[21px] w-[21px] object-contain lg:h-[24px] lg:w-[24px]"
+      />
+    );
+
     switch (key) {
       case "farmers":
-        return <Users {...common} />;
+        return tractorStatIcon;
       case "agents":
-        return <UserCog {...common} />;
+        return userIcon;
       case "activeAgents":
-        return <UserCheck {...common} />;
+        return userIcon;
       case "farmersToday":
-        return <Inbox {...common} />;
+        return tractorStatIcon;
       case "pendingVerification":
-        return <ClipboardList {...common} />;
+        return userIcon;
       default:
         return null;
     }

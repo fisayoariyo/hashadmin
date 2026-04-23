@@ -13,14 +13,20 @@ function CardSectionTitle({ children }: { children: ReactNode }) {
 function FieldRow({
   label,
   value,
+  shaded = false,
   valueClassName = "font-normal text-brand-text-primary",
 }: {
   label: string;
   value: string;
+  shaded?: boolean;
   valueClassName?: string;
 }) {
   return (
-    <p className="font-sans text-[15px] leading-[22px]">
+    <p
+      className={`rounded-xl px-3 py-2.5 font-sans text-[15px] leading-[22px] ${
+        shaded ? "bg-[#fafafa]" : "bg-white"
+      }`}
+    >
       <span className="font-semibold text-brand-text-primary">{label} : </span>
       <span className={valueClassName}>{value}</span>
     </p>
@@ -116,13 +122,14 @@ export default function AdminAgentDetailPage() {
           <CardSectionTitle>Personal information</CardSectionTitle>
           <div className="space-y-4">
             <FieldRow label="Full Name" value={agent.name} />
-            <FieldRow label="Phone number" value={agent.phone} />
+            <FieldRow label="Phone number" value={agent.phone} shaded />
             <FieldRow label="Email" value={agent.email} />
-            <FieldRow label="Registration date" value={agent.registrationDate} />
+            <FieldRow label="Registration date" value={agent.registrationDate} shaded />
             <FieldRow label="Gender" value={agent.gender} />
             <FieldRow
               label="Status"
               value={agent.verificationLabel}
+              shaded
               valueClassName={statusValueClass}
             />
           </div>
@@ -132,7 +139,7 @@ export default function AdminAgentDetailPage() {
           <CardSectionTitle>Assigned Location</CardSectionTitle>
           <div className="space-y-4">
             <FieldRow label="State" value={stateDisplay(agent.state)} />
-            <FieldRow label="Local Government" value={agent.lga} />
+            <FieldRow label="Local Government" value={agent.lga} shaded />
           </div>
         </section>
 
@@ -140,7 +147,7 @@ export default function AdminAgentDetailPage() {
           <CardSectionTitle>Performance</CardSectionTitle>
           <div className="space-y-4">
             <FieldRow label="Total farmers registered" value={agent.farmersOnboarded} />
-            <FieldRow label="Last sync" value={agent.lastSync} />
+            <FieldRow label="Last sync" value={agent.lastSync} shaded />
             <FieldRow label="Last active" value={agent.lastActive} />
           </div>
           <button

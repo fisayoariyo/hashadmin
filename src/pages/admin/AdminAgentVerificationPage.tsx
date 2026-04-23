@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BadgeCheck, CircleX, Filter, List, MoreVertical, Search } from "lucide-react";
+import { BadgeCheck, ChevronDown, CircleX, Filter, List, MoreVertical, Search } from "lucide-react";
 import {
   adminAgentVerificationList,
   type AdminAgentVerificationListRow,
@@ -8,7 +8,7 @@ import {
 } from "@/mockData/adminAgentVerification";
 
 const selectClass =
-  "h-11 min-w-[140px] cursor-pointer rounded-xl border border-[#e4e4e4] bg-white px-3 font-sans text-sm text-brand-text-primary outline-none focus:border-[#03624D] focus:ring-1 focus:ring-[#03624D] sm:min-w-[160px]";
+  "h-9 min-w-[120px] cursor-pointer appearance-none rounded-lg border border-transparent bg-transparent py-2 pl-2 pr-8 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-white/70 focus:border-[#e4e4e4] focus:bg-white sm:min-w-[132px]";
 
 function matchesSearch(row: AdminAgentVerificationListRow, q: string) {
   if (!q.trim()) return true;
@@ -76,9 +76,9 @@ export default function AdminAgentVerificationPage() {
         Agent Verification
       </h2>
 
-      <div className="flex min-h-[52px] w-full items-stretch overflow-hidden rounded-full border border-[#e4e4e4] bg-white shadow-sm">
-        <div className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-2">
-          <Search size={20} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
+      <div className="flex w-full items-center gap-2 sm:max-w-[520px]">
+        <div className="flex h-[44px] min-w-0 flex-1 items-center gap-3 rounded-full border border-[#e4e4e4] bg-white pl-4 pr-3">
+          <Search size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
           <input
             type="search"
             value={query}
@@ -106,49 +106,64 @@ export default function AdminAgentVerificationPage() {
             setLoadMoreSteps(0);
             setSearchApplied(query);
           }}
-          className="m-1 shrink-0 self-center rounded-full bg-[#03624D] px-6 py-2.5 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99]"
+          className="h-[30px] shrink-0 rounded-full bg-[#03624D] px-8 font-sans text-xs font-semibold text-white transition hover:brightness-105 active:scale-[0.99]"
         >
           Search
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <span className="inline-flex items-center gap-2 font-sans text-sm font-medium text-brand-text-secondary">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <span className="inline-flex items-center gap-1.5 font-sans text-sm font-medium text-brand-text-secondary">
           <Filter size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
           Filter
         </span>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setLoadMoreSteps(0);
-            setStatusFilter(e.target.value as StatusFilter);
-          }}
-          className={selectClass}
-          aria-label="Status"
-        >
-          <option value="all">Status</option>
-          <option value="pending">Pending</option>
-          <option value="verified">Verified</option>
-        </select>
-        <select
-          value={sortBy}
-          onChange={(e) => {
-            setLoadMoreSteps(0);
-            setSortBy(e.target.value as SortKey);
-          }}
-          className={selectClass}
-          aria-label="Sort by"
-        >
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="name">Name A–Z</option>
-        </select>
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setLoadMoreSteps(0);
+              setStatusFilter(e.target.value as StatusFilter);
+            }}
+            className={selectClass}
+            aria-label="Status"
+          >
+            <option value="all">Status</option>
+            <option value="pending">Pending</option>
+            <option value="verified">Verified</option>
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              setLoadMoreSteps(0);
+              setSortBy(e.target.value as SortKey);
+            }}
+            className={selectClass}
+            aria-label="Sort by"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name">Name A–Z</option>
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
+        </div>
       </div>
 
-      <div ref={tableRef} className="rounded-[20px] border border-[#e4e4e4] bg-white">
-        <div className="overflow-x-auto">
+      <div ref={tableRef} className="overflow-x-auto">
           <div className="min-w-[720px]">
-            <div className="grid grid-cols-[minmax(8rem,1.2fr)_minmax(8rem,1fr)_minmax(5.5rem,0.75fr)_minmax(5rem,0.65fr)_minmax(6rem,0.85fr)_3rem] gap-3 border-b border-[#e4e4e4] bg-[#fafafa] px-5 py-3.5 text-left font-sans text-xs font-semibold uppercase tracking-wide text-brand-text-muted">
+            <div className="grid grid-cols-[minmax(8rem,1.2fr)_minmax(8rem,1fr)_minmax(5.5rem,0.75fr)_minmax(5rem,0.65fr)_minmax(6rem,0.85fr)_3rem] gap-3 px-5 py-3.5 text-left font-sans text-sm font-semibold text-brand-text-primary">
               <span>Name</span>
               <span>Phone number</span>
               <span>Status</span>
@@ -161,10 +176,12 @@ export default function AdminAgentVerificationPage() {
                 No agents match your filters.
               </p>
             ) : (
-              visibleRows.map((row) => (
+              visibleRows.map((row, i) => (
                 <div
                   key={row.id}
-                  className="relative grid grid-cols-[minmax(8rem,1.2fr)_minmax(8rem,1fr)_minmax(5.5rem,0.75fr)_minmax(5rem,0.65fr)_minmax(6rem,0.85fr)_3rem] items-center gap-3 px-5 py-4 text-sm"
+                  className={`relative grid grid-cols-[minmax(8rem,1.2fr)_minmax(8rem,1fr)_minmax(5.5rem,0.75fr)_minmax(5rem,0.65fr)_minmax(6rem,0.85fr)_3rem] items-center gap-3 px-5 py-4 text-sm ${
+                    i % 2 === 1 ? "bg-[#F6F6F6]" : "bg-transparent"
+                  }`}
                 >
                   <span className="truncate font-sans font-medium text-brand-text-primary">{row.name}</span>
                   <span className="truncate font-sans text-brand-text-secondary">{row.phone}</span>
@@ -230,7 +247,6 @@ export default function AdminAgentVerificationPage() {
               ))
             )}
           </div>
-        </div>
       </div>
 
       {filteredSorted.length > 0 && canLoadMore ? (

@@ -150,7 +150,7 @@ export default function AdminDesktopShell({
 
             <div
               ref={profileMenuRef}
-              className="relative mt-6 flex shrink-0 items-center gap-3 rounded-[12px] bg-[#F6F6F6] px-3 py-3"
+              className="relative mt-6 flex shrink-0 items-center gap-3 rounded-[12px] bg-white px-3 py-3"
             >
               <div
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#03624D] font-display text-sm font-semibold text-white"
@@ -206,7 +206,7 @@ export default function AdminDesktopShell({
               ) : null}
             </div>
 
-            <div className="min-h-0 w-full flex-1 overflow-hidden rounded-[20px] bg-[#F6F6F6] px-9 py-7">
+            <div className="min-h-0 w-full flex-1 overflow-hidden rounded-[20px] bg-[#FBFBFB] px-9 py-7">
               <div className="scrollbar-hide h-full w-full overflow-y-auto pr-1">
                 {children}
               </div>

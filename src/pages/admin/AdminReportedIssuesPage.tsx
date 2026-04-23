@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BadgeCheck, List, MoreVertical, Search } from "lucide-react";
+import { BadgeCheck, ChevronDown, List, MoreVertical, Search } from "lucide-react";
 import {
   adminIssuesList,
   adminIssueStatusOptions,
@@ -49,9 +49,9 @@ export default function AdminReportedIssuesPage() {
 
   return (
     <div className="w-full space-y-6 pb-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="flex min-h-[52px] min-w-0 flex-1 items-center gap-3 rounded-full border border-[#e4e4e4] bg-white px-4 py-2.5 shadow-sm">
-          <Search size={20} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
+      <div className="flex w-full items-center gap-2 sm:max-w-[520px]">
+        <div className="flex h-[44px] min-w-0 flex-1 items-center gap-3 rounded-full border border-[#e4e4e4] bg-white pl-4 pr-3">
+          <Search size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
           <input
             type="search"
             value={query}
@@ -70,7 +70,7 @@ export default function AdminReportedIssuesPage() {
         <button
           type="button"
           onClick={() => setSearchApplied(query)}
-          className="h-[52px] shrink-0 rounded-full bg-[#03624D] px-8 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99]"
+          className="h-[30px] shrink-0 rounded-full bg-[#03624D] px-8 font-sans text-xs font-semibold text-white transition hover:brightness-105 active:scale-[0.99]"
         >
           Search
         </button>
@@ -78,25 +78,33 @@ export default function AdminReportedIssuesPage() {
 
       <label className="flex max-w-xs flex-col gap-1.5 font-sans text-xs font-medium text-brand-text-muted">
         Status
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as typeof status)}
-          className="h-11 rounded-xl border border-[#e4e4e4] bg-white px-3 font-sans text-sm text-brand-text-primary outline-none focus:border-[#03624D] focus:ring-1 focus:ring-[#03624D]"
-        >
-          {adminIssueStatusOptions.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as typeof status)}
+            className="h-9 w-full cursor-pointer appearance-none rounded-lg border border-transparent bg-transparent py-2 pl-2 pr-8 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-white/70 focus:border-[#e4e4e4] focus:bg-white"
+          >
+            {adminIssueStatusOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
+        </div>
       </label>
 
       <h2 className="font-display text-[20px] font-bold leading-6 text-brand-text-primary">
         Reported Issues
       </h2>
 
-      <div ref={tableRef} className="overflow-hidden rounded-[20px] border border-[#e4e4e4] bg-white">
-        <div className="grid grid-cols-[0.9fr_1.4fr_0.9fr_0.85fr_0.85fr_2.5rem] gap-2 border-b border-[#e4e4e4] bg-[#fafafa] px-4 py-3 text-left font-sans text-xs font-semibold uppercase tracking-wide text-brand-text-muted">
+      <div ref={tableRef} className="overflow-x-auto">
+        <div className="grid min-w-[860px] grid-cols-[0.9fr_1.4fr_0.9fr_0.85fr_0.85fr_2.5rem] gap-2 px-4 py-3 text-left font-sans text-sm font-semibold text-brand-text-primary">
           <span>ID</span>
           <span>Subject</span>
           <span>Reporter</span>
@@ -114,8 +122,8 @@ export default function AdminReportedIssuesPage() {
           rows.map((row, i) => (
             <div
               key={row.id}
-              className={`relative grid grid-cols-[0.9fr_1.4fr_0.9fr_0.85fr_0.85fr_2.5rem] items-center gap-2 border-b border-[#f0f0f0] px-4 py-3.5 text-sm last:border-b-0 ${
-                i % 2 === 1 ? "bg-[#fafafa]" : "bg-white"
+              className={`relative grid min-w-[860px] grid-cols-[0.9fr_1.4fr_0.9fr_0.85fr_0.85fr_2.5rem] items-center gap-2 px-4 py-3.5 text-sm ${
+                i % 2 === 1 ? "bg-[#F6F6F6]" : "bg-transparent"
               }`}
             >
               <span className="truncate font-mono text-xs text-brand-text-secondary">{row.id}</span>
