@@ -1,52 +1,79 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, Filter, MoreVertical, Search } from "lucide-react";
-import {
-  adminFarmerCropOptions,
-  adminFarmersList,
-  type AdminFarmerListRow,
-} from "@/mockData/adminFarmers";
-import { useNigeriaStateLga } from "@/hooks/useNigeriaStateLga";
+import { listFarmers, type AdminFarmerRow } from "@/lib/adminApi";
 
 const selectClass =
   "h-9 min-w-[120px] cursor-pointer appearance-none rounded-lg border border-transparent bg-transparent py-2 pl-2 pr-8 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-white/70 focus:border-[#e4e4e4] focus:bg-white sm:min-w-[132px]";
 
-function matchesSearch(row: AdminFarmerListRow, q: string) {
+function matchesSearch(row: AdminFarmerRow, q: string) {
   if (!q.trim()) return true;
-  const s = q.trim().toLowerCase();
-  return row.name.toLowerCase().includes(s) || row.farmerId.toLowerCase().includes(s);
+  const search = q.trim().toLowerCase();
+  return row.name.toLowerCase().includes(search) || row.farmerId.toLowerCase().includes(search);
 }
-
-type CropFilter = (typeof adminFarmerCropOptions)[number];
 
 export default function AdminFarmersPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [searchApplied, setSearchApplied] = useState("");
-  const [crop, setCrop] = useState<CropFilter>("All crops");
-  const [state, setState] = useState("All states");
+  const [stateFilter, setStateFilter] = useState("All states");
+  const [cropFilter, setCropFilter] = useState("All crops");
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [rows, setRows] = useState<AdminFarmerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const tableRef = useRef<HTMLDivElement>(null);
-  const { states } = useNigeriaStateLga();
-
-  const stateOptions = useMemo(() => ["All states", ...states], [states]);
 
   useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (!tableRef.current?.contains(e.target as Node)) setMenuId(null);
+    const close = (event: MouseEvent) => {
+      if (!tableRef.current?.contains(event.target as Node)) setMenuId(null);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const rows = useMemo(() => {
-    return adminFarmersList.filter((row) => {
-      if (!matchesSearch(row, searchApplied)) return false;
-      if (crop !== "All crops" && row.crop !== crop) return false;
-      if (state !== "All states" && row.state !== state) return false;
-      return true;
-    });
-  }, [searchApplied, crop, state]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    listFarmers()
+      .then((payload) => {
+        if (active) setRows(payload);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setRows([]);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load farmers.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const stateOptions = useMemo(
+    () => ["All states", ...Array.from(new Set(rows.map((row) => row.state).filter((state) => state && state !== "-")))],
+    [rows],
+  );
+
+  const cropOptions = useMemo(
+    () => ["All crops", ...Array.from(new Set(rows.map((row) => row.crop).filter((crop) => crop && crop !== "-")))],
+    [rows],
+  );
+
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        if (!matchesSearch(row, searchApplied)) return false;
+        if (cropFilter !== "All crops" && row.crop !== cropFilter) return false;
+        if (stateFilter !== "All states" && row.state !== stateFilter) return false;
+        return true;
+      }),
+    [rows, searchApplied, cropFilter, stateFilter],
+  );
 
   return (
     <div className="w-full space-y-5 pb-4">
@@ -54,19 +81,21 @@ export default function AdminFarmersPage() {
         Farmer Management
       </h2>
 
+      {error ? <p className="font-sans text-sm text-red-600">{error}</p> : null}
+
       <div className="flex w-full items-center gap-2 sm:max-w-[520px]">
         <div className="flex h-[44px] min-w-0 flex-1 items-center gap-3 rounded-full border border-[#e4e4e4] bg-white pl-4 pr-3">
           <Search size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
           <input
             type="search"
             value={query}
-            onChange={(e) => {
-              const v = e.target.value;
-              setQuery(v);
-              if (!v.trim()) setSearchApplied("");
+            onChange={(event) => {
+              const value = event.target.value;
+              setQuery(value);
+              if (!value.trim()) setSearchApplied("");
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") setSearchApplied(query);
+            onKeyDown={(event) => {
+              if (event.key === "Enter") setSearchApplied(query);
             }}
             placeholder="Search farmer by name, farmer ID..."
             className="min-w-0 flex-1 border-0 bg-transparent font-sans text-sm text-brand-text-primary outline-none placeholder:text-brand-text-muted"
@@ -88,15 +117,14 @@ export default function AdminFarmersPage() {
         </span>
         <div className="relative">
           <select
-            value={crop}
-            onChange={(e) => setCrop(e.target.value as CropFilter)}
+            value={cropFilter}
+            onChange={(event) => setCropFilter(event.target.value)}
             className={selectClass}
             aria-label="Crop"
           >
-            <option value="All crops">Crop</option>
-            {adminFarmerCropOptions.filter((c) => c !== "All crops").map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {cropOptions.map((crop) => (
+              <option key={crop} value={crop}>
+                {crop === "All crops" ? "Crop" : crop}
               </option>
             ))}
           </select>
@@ -109,14 +137,14 @@ export default function AdminFarmersPage() {
         </div>
         <div className="relative">
           <select
-            value={state}
-            onChange={(e) => setState(e.target.value)}
+            value={stateFilter}
+            onChange={(event) => setStateFilter(event.target.value)}
             className={selectClass}
             aria-label="State"
           >
-            {stateOptions.map((s) => (
-              <option key={s} value={s}>
-                {s === "All states" ? "State" : s}
+            {stateOptions.map((stateOption) => (
+              <option key={stateOption} value={stateOption}>
+                {stateOption === "All states" ? "State" : stateOption}
               </option>
             ))}
           </select>
@@ -140,16 +168,16 @@ export default function AdminFarmersPage() {
             ·
           </span>
         </div>
-        {rows.length === 0 ? (
+        {filteredRows.length === 0 ? (
           <p className="px-4 py-10 text-center font-sans text-sm text-brand-text-secondary">
-            No farmers match your filters.
+            {loading ? "Loading farmers..." : "No farmers match your filters."}
           </p>
         ) : (
-          rows.map((row, i) => (
+          filteredRows.map((row, index) => (
             <div
-              key={row.id}
+              key={row.farmerId}
               className={`relative grid min-w-[760px] grid-cols-[1.1fr_1.15fr_0.9fr_0.75fr_0.85fr_2.5rem] items-center gap-2 px-4 py-3.5 text-sm ${
-                i % 2 === 1 ? "bg-[#F6F6F6]" : "bg-transparent"
+                index % 2 === 1 ? "bg-[#F6F6F6]" : "bg-transparent"
               }`}
             >
               <button
@@ -166,13 +194,13 @@ export default function AdminFarmersPage() {
               <div className="relative flex justify-center">
                 <button
                   type="button"
-                  onClick={() => setMenuId((v) => (v === row.id ? null : row.id))}
+                  onClick={() => setMenuId((value) => (value === row.farmerId ? null : row.farmerId))}
                   className="rounded-lg p-1.5 text-brand-text-muted hover:bg-black/[0.04] hover:text-brand-text-primary"
                   aria-label={`Actions for ${row.name}`}
                 >
                   <MoreVertical size={18} strokeWidth={1.8} />
                 </button>
-                {menuId === row.id ? (
+                {menuId === row.farmerId ? (
                   <div className="absolute right-0 top-full z-30 mt-1 w-44 rounded-xl border border-[#e4e4e4] bg-white py-1 shadow-lg">
                     <button
                       type="button"

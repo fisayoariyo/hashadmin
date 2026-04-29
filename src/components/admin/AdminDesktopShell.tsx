@@ -14,8 +14,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { clearAdminSession } from "@/lib/adminSession";
-import { adminUser } from "@/mockData/adminUser";
+import { clearAdminSession, getAdminSession } from "@/lib/adminSession";
 import tractorIcon from "@/assets/comps/tractor.svg";
 
 /** Mirrors `AgentDesktopShell` nav `key` → route mapping in `hashmar-farmer-app`. */
@@ -69,6 +68,7 @@ export default function AdminDesktopShell({
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const [adminName, setAdminName] = useState("Admin");
 
   useEffect(() => {
     if (!profileMenuOpen) return;
@@ -78,6 +78,16 @@ export default function AdminDesktopShell({
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [profileMenuOpen]);
+
+  useEffect(() => {
+    let active = true;
+    void getAdminSession().then((session) => {
+      if (active && session?.displayName) setAdminName(session.displayName);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleLogout = async () => {
     setProfileMenuOpen(false);
@@ -156,11 +166,16 @@ export default function AdminDesktopShell({
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#03624D] font-display text-sm font-semibold text-white"
                 aria-hidden="true"
               >
-                {adminUser.initials}
+                {adminName
+                  .split(/\s+/)
+                  .map((part) => part[0] || "")
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase() || "AD"}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-sans text-[15px] font-medium leading-tight text-brand-text-primary">
-                  {adminUser.displayName}
+                  {adminName}
                 </p>
               </div>
               <button
@@ -195,7 +210,7 @@ export default function AdminDesktopShell({
             <div className="flex h-[95px] shrink-0 items-center justify-between rounded-[20px] bg-white px-[26px] py-[15px]">
               <div className="min-w-0">
                 <h1 className="truncate font-display text-[20px] font-bold leading-6 text-brand-text-primary">
-                  Welcome, {adminUser.displayName}
+                  Welcome, {adminName}
                 </h1>
                 <p className="mt-2 text-[15px] font-light leading-[18px] text-brand-text-secondary">
                   Monitor and manage farmers and agents activities

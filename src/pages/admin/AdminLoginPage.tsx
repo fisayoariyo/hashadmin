@@ -4,8 +4,8 @@ import { Check, Eye, EyeOff, Lock, Mail } from "lucide-react";
 /** Left-panel hero image (`src/assets/admin-auth/login-hero.png`). */
 import heroImage from "@/assets/admin-auth/login-hero.png";
 import cardPattern from "@/assets/comps/card-pattern-desktop.svg";
-import { clearAdminSession, saveAdminSession } from "@/lib/adminSession";
-import { enqueueOutbox } from "@/lib/syncOutbox";
+import { loginAdmin } from "@/lib/adminApi";
+import { clearAdminSession } from "@/lib/adminSession";
 
 type Step = "login" | "reset-otp" | "reset-password";
 
@@ -19,7 +19,7 @@ export default function AdminLoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [resetEmail, setResetEmail] = useState("");
+  const resetEmail = email.trim();
   const [digits, setDigits] = useState(["", "", "", ""]);
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
@@ -47,18 +47,18 @@ export default function AdminLoginPage() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-    await saveAdminSession(email.trim());
-    await enqueueOutbox("AUTH_LOGIN", { email: email.trim(), at: Date.now() });
-    setLoading(false);
-    navigate("/dashboard", { replace: true });
+    try {
+      await loginAdmin(email.trim(), password);
+      navigate("/dashboard", { replace: true });
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "Could not log in.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const startForgot = () => {
-    setResetEmail(email.trim());
-    setDigits(["", "", "", ""]);
-    setStep("reset-otp");
-    setTimeout(() => otpRefs[0].current?.focus(), 0);
+    setError("Admin password reset is not exposed in the backend Swagger yet.");
   };
 
   const handleOtpContinue = async () => {
@@ -83,10 +83,6 @@ export default function AdminLoginPage() {
     setError("");
     setLoading(true);
     await new Promise((r) => setTimeout(r, 400));
-    await enqueueOutbox("AUTH_PASSWORD_RESET", {
-      email: resetEmail || email.trim(),
-      at: Date.now(),
-    });
     setLoading(false);
     setShowResetSuccessModal(true);
   };

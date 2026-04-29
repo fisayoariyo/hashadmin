@@ -1,14 +1,14 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CircleX, Pencil, UserRoundSearch } from "lucide-react";
 import DeactivateFarmerConfirmModal from "@/components/admin/DeactivateFarmerConfirmModal";
 import cardPattern from "@/assets/comps/card-pattern-desktop.svg";
-import { getAdminFarmerDetail, type AdminFarmerDetail } from "@/mockData/adminFarmers";
+import { getFarmerDetail, type AdminFarmerDetailData } from "@/lib/adminApi";
 
 const ID_CARD_FALLBACK_PHOTO =
   "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=280&h=280&q=80";
 
-function FarmerDigitalIdCard({ detail }: { detail: AdminFarmerDetail }) {
+function FarmerDigitalIdCard({ detail }: { detail: AdminFarmerDetailData }) {
   const { idCard } = detail;
   const photoSrc = idCard.photoUrl ?? ID_CARD_FALLBACK_PHOTO;
   const sigFirst = idCard.agentName.split(/\s+/)[0] ?? idCard.agentName;
@@ -146,12 +146,40 @@ export default function AdminFarmerDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") === "id" ? "id" : "details";
   const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [detail, setDetail] = useState<AdminFarmerDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const detail = getAdminFarmerDetail(decodeURIComponent(farmerId));
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    getFarmerDetail(decodeURIComponent(farmerId))
+      .then((payload) => {
+        if (active) setDetail(payload);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setDetail(null);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load farmer details.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [farmerId]);
+
+  if (loading) {
+    return <p className="font-sans text-sm text-brand-text-secondary">Loading farmer details...</p>;
+  }
+
   if (!detail) {
     return (
       <div className="rounded-[20px] border border-[#e4e4e4] bg-white p-8 text-center">
-        <p className="font-sans text-sm text-brand-text-secondary">Farmer not found.</p>
+        <p className="font-sans text-sm text-brand-text-secondary">{error || "Farmer not found."}</p>
         <button
           type="button"
           onClick={() => navigate("/farmers")}
@@ -208,7 +236,7 @@ export default function AdminFarmerDetailPage() {
           </button>
           <button
             type="button"
-            onClick={() => setDeactivateOpen(true)}
+            onClick={() => setError("Farmer deactivation is not exposed as a dedicated backend endpoint yet.")}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#03624D] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
           >
             Deactivate
@@ -224,6 +252,10 @@ export default function AdminFarmerDetailPage() {
           </button>
         </div>
       </div>
+
+      {error ? (
+        <p className="font-sans text-sm text-red-600">{error}</p>
+      ) : null}
 
       <div className="inline-flex shrink-0 rounded-full bg-[#f0f0f0] p-1">
         <button

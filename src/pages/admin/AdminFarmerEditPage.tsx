@@ -12,7 +12,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { getAdminFarmerDetail } from "@/mockData/adminFarmers";
+import { getFarmerDetail, updateFarmer, type AdminFarmerDetailData } from "@/lib/adminApi";
 import { useNigeriaStateLga } from "@/hooks/useNigeriaStateLga";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -100,9 +100,34 @@ export default function AdminFarmerEditPage() {
   const { farmerId = "" } = useParams<{ farmerId: string }>();
   const navigate = useNavigate();
   const id = decodeURIComponent(farmerId);
-  const detail = getAdminFarmerDetail(id);
+  const [detail, setDetail] = useState<AdminFarmerDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const back = `/farmers/${encodeURIComponent(id)}`;
   const { states, getLgasForState } = useNigeriaStateLga();
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    getFarmerDetail(id)
+      .then((payload) => {
+        if (active) setDetail(payload);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setDetail(null);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load farmer details.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   const fallbackState = states.includes("Oyo") ? "Oyo" : states[0] ?? "";
   const inferredStateFromFarmLocation = detail?.farm.farmLocation.split(",").at(-1)?.trim() ?? fallbackState;
@@ -131,6 +156,11 @@ export default function AdminFarmerEditPage() {
   );
 
   useEffect(() => {
+    if (!detail) return;
+    setStateOfOrigin(initialStateOfOrigin);
+  }, [detail, initialStateOfOrigin]);
+
+  useEffect(() => {
     if (!originLgaOptions.includes(originLga)) {
       setOriginLga(originLgaOptions[0] ?? "");
     }
@@ -142,10 +172,14 @@ export default function AdminFarmerEditPage() {
     }
   }, [cooperativeLga, cooperativeLgaOptions]);
 
+  if (loading) {
+    return <p className="font-sans text-sm text-brand-text-secondary">Loading farmer details...</p>;
+  }
+
   if (!detail) {
     return (
       <div className="rounded-[20px] border border-[#e4e4e4] bg-white p-8 text-center">
-        <p className="font-sans text-sm text-brand-text-secondary">Farmer not found.</p>
+        <p className="font-sans text-sm text-brand-text-secondary">{error || "Farmer not found."}</p>
         <button
           type="button"
           onClick={() => navigate("/farmers")}
@@ -181,23 +215,46 @@ export default function AdminFarmerEditPage() {
             Discard changes
           </button>
           <button
-            type="button"
-            onClick={() => navigate(back)}
+            type="submit"
+            disabled={saving}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#03624D] px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99]"
           >
             <Save size={18} strokeWidth={1.9} />
-            Save Changes
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>
 
       <form
         className="space-y-5"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          navigate(back);
+          const form = new FormData(e.currentTarget);
+          setSaving(true);
+          setError("");
+          try {
+            await updateFarmer(id, {
+              phone_number: String(form.get("phone") || "").trim() || undefined,
+              state_of_origin: stateOfOrigin || undefined,
+              lga: originLga || undefined,
+              residential_address: String(form.get("address") || "").trim() || undefined,
+              crop_type: String(form.get("crop") || "").trim() || undefined,
+              land_ownership: String(form.get("landOwnership") || "").trim() || undefined,
+              farm_location: String(form.get("farmLocation") || "").trim() || undefined,
+              soil_type: String(form.get("soil") || "").trim() || undefined,
+              next_of_kin_name: String(form.get("nokName") || "").trim() || undefined,
+              next_of_kin_phone: String(form.get("nokPhone") || "").trim() || undefined,
+              next_of_kin_relation: String(form.get("nokRel") || "").trim() || undefined,
+            });
+            navigate(back);
+          } catch (saveError) {
+            setError(saveError instanceof Error ? saveError.message : "Could not save farmer changes.");
+          } finally {
+            setSaving(false);
+          }
         }}
       >
+        {error ? <p className="font-sans text-sm text-red-600">{error}</p> : null}
         <Section title="Contact Information">
           <div className={grid3}>
             <FieldBlock label="Phone number" required>
