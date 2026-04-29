@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CircleX, Pencil } from "lucide-react";
 import DeactivateAgentConfirmModal from "@/components/admin/DeactivateAgentConfirmModal";
 import { getAdminAgentDetail } from "@/mockData/adminAgents";
+import { deactivateAgent } from "@/lib/adminApi";
 
 export default function AdminAgentDeactivatePage() {
   const { agentId = "" } = useParams<{ agentId: string }>();
@@ -11,6 +12,8 @@ export default function AdminAgentDeactivatePage() {
   const agent = getAdminAgentDetail(id);
   const [reason, setReason] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   if (!agent) {
     return (
@@ -36,8 +39,18 @@ export default function AdminAgentDeactivatePage() {
       <DeactivateAgentConfirmModal
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
+          setSaving(true);
+          setError("");
+          try {
+            await deactivateAgent(agent.agentId);
+          } catch (submitError) {
+            setError(submitError instanceof Error ? submitError.message : "Could not deactivate agent.");
+            setSaving(false);
+            return;
+          }
           setConfirmOpen(false);
+          setSaving(false);
           navigate("/agents");
         }}
       />
@@ -58,14 +71,17 @@ export default function AdminAgentDeactivatePage() {
         <button
           type="button"
           onClick={() => setConfirmOpen(true)}
+          disabled={saving}
           className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-full bg-[#03624D] px-6 py-3 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99] sm:self-auto"
         >
-          Deactivate Agent
+          {saving ? "Deactivating..." : "Deactivate Agent"}
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/35">
             <CircleX size={18} className="text-white" strokeWidth={1.9} />
           </span>
         </button>
       </div>
+
+      {error ? <p className="font-sans text-sm text-red-600">{error}</p> : null}
 
       <section className="rounded-[20px] border border-[#e4e4e4] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-8">
         <div className="rounded-2xl border border-[#ececec] bg-white p-5 sm:p-6">

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronDown, CircleX, Save } from "lucide-react";
 import { getAdminAgentDetail } from "@/mockData/adminAgents";
 import { useNigeriaStateLga } from "@/hooks/useNigeriaStateLga";
+import { reassignAgentLocation } from "@/lib/adminApi";
 
 const outerCard =
   "rounded-2xl border border-[#E8E8E8] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:px-7 sm:py-7";
@@ -64,6 +65,8 @@ export default function AdminAgentReassignLocationPage() {
 
   const [state, setState] = useState("");
   const [lga, setLga] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const lgasForState = useMemo(() => (state ? getLgasForState(state) : []), [getLgasForState, state]);
 
@@ -99,9 +102,22 @@ export default function AdminAgentReassignLocationPage() {
       <div className={outerCard}>
         <form
           className="space-y-6"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            navigate(back);
+            if (!state || !lga) {
+              setError("Select both state and LGA.");
+              return;
+            }
+            setSaving(true);
+            setError("");
+            try {
+              await reassignAgentLocation(agent.agentId, { state, lga });
+              navigate(back);
+            } catch (submitError) {
+              setError(submitError instanceof Error ? submitError.message : "Could not reassign agent location.");
+            } finally {
+              setSaving(false);
+            }
           }}
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -122,8 +138,8 @@ export default function AdminAgentReassignLocationPage() {
                 Cancel
                 <CircleX size={18} strokeWidth={1.9} />
               </button>
-              <button type="submit" className={saveBtn}>
-                Save Changes
+              <button type="submit" className={saveBtn} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
                 <Save size={18} strokeWidth={1.9} />
               </button>
             </div>
@@ -133,6 +149,7 @@ export default function AdminAgentReassignLocationPage() {
             <h3 className="mb-6 font-sans text-sm font-medium leading-5 text-[#9B9B9B]">
               Assign new location
             </h3>
+            {error ? <p className="mb-4 font-sans text-sm text-red-600">{error}</p> : null}
 
             <div className="grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-2 md:gap-x-8">
               <FieldBlock label="State">

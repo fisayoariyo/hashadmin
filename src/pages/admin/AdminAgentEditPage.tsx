@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronDown, CircleX, Mail, Phone, Save } from "lucide-react";
 import { getAdminAgentDetail } from "@/mockData/adminAgents";
+import { updateAgent } from "@/lib/adminApi";
 
 const grid3 = "grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-3 md:gap-x-8 md:gap-y-7";
 
@@ -92,6 +93,11 @@ export default function AdminAgentEditPage() {
   const id = decodeURIComponent(agentId);
   const agent = getAdminAgentDetail(id);
   const [gender, setGender] = useState(agent?.gender ?? "Male");
+  const [fullName, setFullName] = useState(agent?.name ?? "");
+  const [phone, setPhone] = useState(nationalMobileDigits(agent?.phone ?? ""));
+  const [email, setEmail] = useState(agent?.email ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   if (!agent) {
     return (
@@ -122,9 +128,23 @@ export default function AdminAgentEditPage() {
       <div className={cardShell}>
         <form
           className="space-y-2"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            navigate(back);
+            setSaving(true);
+            setError("");
+            try {
+              await updateAgent(agent.agentId, {
+                full_name: fullName.trim(),
+                phone_number: phone ? `+234${phone}` : "",
+                email: email.trim(),
+                gender,
+              });
+              navigate(back);
+            } catch (submitError) {
+              setError(submitError instanceof Error ? submitError.message : "Could not update agent.");
+            } finally {
+              setSaving(false);
+            }
           }}
         >
           <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -145,16 +165,31 @@ export default function AdminAgentEditPage() {
                 Discard changes
                 <CircleX size={18} strokeWidth={1.9} />
               </button>
-              <button type="submit" className={primaryGreen}>
-                Save Changes
+              <button type="submit" className={primaryGreen} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
                 <Save size={18} strokeWidth={1.9} />
               </button>
             </div>
           </div>
 
           <h3 className="mb-5 font-sans text-sm font-medium leading-5 text-[#9B9B9B]">Personal Information</h3>
+          {error ? <p className="mb-4 font-sans text-sm text-red-600">{error}</p> : null}
 
           <div className={grid3}>
+            <FieldBlock label="Full name" required>
+              <InputShell>
+                <input
+                  name="fullName"
+                  type="text"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder="Enter full name"
+                  className="min-w-0 flex-1 border-0 bg-transparent py-2 font-sans text-sm outline-none placeholder:text-brand-text-muted"
+                  autoComplete="name"
+                />
+              </InputShell>
+            </FieldBlock>
+
             <FieldBlock label="Phone number" required>
               <InputShell>
                 <Phone size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.65} />
@@ -163,7 +198,8 @@ export default function AdminAgentEditPage() {
                 <input
                   name="phone"
                   type="tel"
-                  defaultValue={nationalMobileDigits(agent.phone)}
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))}
                   placeholder="Input your phone number here"
                   className="min-w-0 flex-1 border-0 bg-transparent py-2 font-sans text-sm outline-none placeholder:text-brand-text-muted"
                   autoComplete="tel"
@@ -177,7 +213,8 @@ export default function AdminAgentEditPage() {
                 <input
                   name="email"
                   type="email"
-                  defaultValue={agent.email}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                   placeholder="Enter your email here"
                   className="min-w-0 flex-1 border-0 bg-transparent py-2 font-sans text-sm outline-none placeholder:text-brand-text-muted"
                   autoComplete="email"

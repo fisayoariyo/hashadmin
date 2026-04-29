@@ -137,8 +137,16 @@ async function apiFetch(
       body: finalBody as BodyInit | null | undefined,
     });
   } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : typeof error === "string" && error.trim()
+          ? error.trim()
+          : "";
     throw new AdminApiError(
-      "Could not reach the Hashmar server.",
+      detail
+        ? `Could not reach the Hashmar server. ${detail}`
+        : "Could not reach the Hashmar server.",
       0,
       error instanceof Error ? error.message : error,
     );
@@ -223,6 +231,25 @@ export async function loginAdmin(email: string, password: string) {
   return response;
 }
 
+export async function registerAdmin(input: {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  password: string;
+}) {
+  const tokens = getStoredTokens();
+  return apiFetch("/admin/register", {
+    method: "POST",
+    token: tokens.accessToken || undefined,
+    body: {
+      full_name: input.fullName.trim(),
+      email: input.email.trim(),
+      phone_number: input.phoneNumber.trim(),
+      password: input.password,
+    },
+  });
+}
+
 export type AdminGeoOption = { id: string; name: string };
 
 export async function getGeoStates() {
@@ -296,6 +323,29 @@ export async function decideAgentApproval(agentId: string, status: "ACTIVE" | "R
     body: {
       status,
       ...(status === "REJECTED" && rejectionReason ? { rejection_reason: rejectionReason } : {}),
+    },
+  });
+}
+
+export async function updateAgent(agentId: string, body: Record<string, unknown>) {
+  return sessionFetch(`/admin/agents/${encodeURIComponent(agentId)}`, {
+    method: "PATCH",
+    body,
+  });
+}
+
+export async function deactivateAgent(agentId: string) {
+  return sessionFetch(`/admin/agents/${encodeURIComponent(agentId)}/deactivate`, {
+    method: "POST",
+  });
+}
+
+export async function reassignAgentLocation(agentId: string, input: { state: string; lga: string }) {
+  return sessionFetch(`/admin/agents/${encodeURIComponent(agentId)}/reassign-location`, {
+    method: "PUT",
+    body: {
+      state: input.state.trim(),
+      lga: input.lga.trim(),
     },
   });
 }

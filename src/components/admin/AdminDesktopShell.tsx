@@ -12,6 +12,7 @@ import {
   LogOut,
   MoreHorizontal,
   UserCog,
+  UserPlus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { clearAdminSession, getAdminSession } from "@/lib/adminSession";
@@ -51,7 +52,7 @@ export const ADMIN_NAV_LINKS = [
   },
 ] as const;
 
-export type AdminShellNavKey = (typeof ADMIN_NAV_LINKS)[number]["key"];
+export type AdminShellNavKey = (typeof ADMIN_NAV_LINKS)[number]["key"] | "create-admin";
 
 type AdminDesktopShellProps = {
   active: AdminShellNavKey;
@@ -157,6 +158,25 @@ export default function AdminDesktopShell({
                 );
               })}
             </nav>
+
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => navigate("/admins/create")}
+                className={`flex h-[45px] w-full items-center gap-[10px] rounded-[10px] px-[14px] text-left text-[15px] font-normal leading-[18px] transition-colors ${
+                  active === "create-admin"
+                    ? "bg-[#03624D] text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)]"
+                    : "text-[#030F0F]/80 hover:bg-[#03624D]/10 hover:text-[#03624D]"
+                }`}
+              >
+                <UserPlus
+                  size={20}
+                  strokeWidth={active === "create-admin" ? 2.1 : 1.9}
+                  className={active === "create-admin" ? "text-white" : "text-[#030F0F]"}
+                />
+                Create Admin
+              </button>
+            </div>
 
             <div
               ref={profileMenuRef}
