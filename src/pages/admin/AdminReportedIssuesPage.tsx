@@ -1,51 +1,72 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BadgeCheck, ChevronDown, List, MoreVertical, Search } from "lucide-react";
-import {
-  adminIssuesList,
-  adminIssueStatusOptions,
-  getMergedIssueStatus,
-  markReportedIssueResolved,
-  type AdminIssueRow,
-  type AdminIssueStatus,
-} from "@/mockData/adminReportedIssues";
+import { ChevronDown, MoreVertical, Search } from "lucide-react";
+import { listSupportTickets, type AdminSupportTicketRow, type AdminSupportTicketStatus } from "@/lib/adminApi";
 
-function matchesSearch(row: AdminIssueRow, q: string) {
+function matchesSearch(row: AdminSupportTicketRow, q: string) {
   if (!q.trim()) return true;
-  const s = q.trim().toLowerCase();
+  const search = q.trim().toLowerCase();
   return (
-    row.subject.toLowerCase().includes(s) ||
-    row.reporter.toLowerCase().includes(s) ||
-    row.id.toLowerCase().includes(s)
+    row.id.toLowerCase().includes(search) ||
+    row.issueType.toLowerCase().includes(search) ||
+    row.farmerId.toLowerCase().includes(search) ||
+    row.userId.toLowerCase().includes(search) ||
+    row.description.toLowerCase().includes(search)
   );
 }
+
+const statusOptions = ["All", "Open", "In review", "Resolved"] as const;
 
 export default function AdminReportedIssuesPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [searchApplied, setSearchApplied] = useState("");
-  const [status, setStatus] = useState<(typeof adminIssueStatusOptions)[number]>("All");
+  const [status, setStatus] = useState<(typeof statusOptions)[number]>("All");
   const [menuId, setMenuId] = useState<string | null>(null);
-  const [statusTick, setStatusTick] = useReducer((x: number) => x + 1, 0);
+  const [rows, setRows] = useState<AdminSupportTicketRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const tableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (!tableRef.current?.contains(e.target as Node)) setMenuId(null);
+    const close = (event: MouseEvent) => {
+      if (!tableRef.current?.contains(event.target as Node)) setMenuId(null);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const rows = useMemo(() => {
-    return adminIssuesList
-      .map((row) => ({ ...row, status: getMergedIssueStatus(row.id, row.status) }))
-      .filter((row) => {
-        if (!matchesSearch(row, searchApplied)) return false;
-        if (status !== "All" && row.status !== (status as AdminIssueStatus)) return false;
-        return true;
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    listSupportTickets()
+      .then((tickets) => {
+        if (active) setRows(tickets);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setRows([]);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load support tickets.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
-  }, [searchApplied, status, statusTick]);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        if (!matchesSearch(row, searchApplied)) return false;
+        if (status !== "All" && row.status !== (status as AdminSupportTicketStatus)) return false;
+        return true;
+      }),
+    [rows, searchApplied, status],
+  );
 
   return (
     <div className="w-full space-y-6 pb-4">
@@ -55,15 +76,15 @@ export default function AdminReportedIssuesPage() {
           <input
             type="search"
             value={query}
-            onChange={(e) => {
-              const v = e.target.value;
-              setQuery(v);
-              if (!v.trim()) setSearchApplied("");
+            onChange={(event) => {
+              const value = event.target.value;
+              setQuery(value);
+              if (!value.trim()) setSearchApplied("");
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") setSearchApplied(query);
+            onKeyDown={(event) => {
+              if (event.key === "Enter") setSearchApplied(query);
             }}
-            placeholder="Search by subject, reporter, issue ID..."
+            placeholder="Search by issue type, farmer ID, user ID or ticket ID..."
             className="min-w-0 flex-1 border-0 bg-transparent font-sans text-sm text-brand-text-primary outline-none placeholder:text-brand-text-muted"
           />
         </div>
@@ -81,12 +102,12 @@ export default function AdminReportedIssuesPage() {
         <div className="relative">
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value as typeof status)}
+            onChange={(event) => setStatus(event.target.value as typeof status)}
             className="h-9 w-full cursor-pointer appearance-none rounded-lg border border-transparent bg-transparent py-2 pl-2 pr-8 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-white/70 focus:border-[#e4e4e4] focus:bg-white"
           >
-            {adminIssueStatusOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
+            {statusOptions.map((statusOption) => (
+              <option key={statusOption} value={statusOption}>
+                {statusOption}
               </option>
             ))}
           </select>
@@ -103,33 +124,37 @@ export default function AdminReportedIssuesPage() {
         Reported Issues
       </h2>
 
+      {error ? <p className="font-sans text-sm text-red-600">{error}</p> : null}
+
       <div ref={tableRef} className="overflow-x-auto">
-        <div className="grid min-w-[860px] grid-cols-[0.9fr_1.4fr_0.9fr_0.85fr_0.85fr_2.5rem] gap-2 px-4 py-3 text-left font-sans text-sm font-semibold text-brand-text-primary">
+        <div className="grid min-w-[920px] grid-cols-[0.9fr_1.15fr_0.9fr_0.9fr_0.8fr_0.8fr_2.5rem] gap-2 px-4 py-3 text-left font-sans text-sm font-semibold text-brand-text-primary">
           <span>ID</span>
-          <span>Subject</span>
-          <span>Reporter</span>
-          <span>Category</span>
+          <span>Issue Type</span>
+          <span>Farmer ID</span>
+          <span>User ID</span>
+          <span>Created</span>
           <span>Status</span>
           <span className="text-center" aria-hidden>
             ·
           </span>
         </div>
-        {rows.length === 0 ? (
+        {filteredRows.length === 0 ? (
           <p className="px-4 py-10 text-center font-sans text-sm text-brand-text-secondary">
-            No issues match your filters.
+            {loading ? "Loading support tickets..." : "No issues match your filters."}
           </p>
         ) : (
-          rows.map((row, i) => (
+          filteredRows.map((row, index) => (
             <div
               key={row.id}
-              className={`relative grid min-w-[860px] grid-cols-[0.9fr_1.4fr_0.9fr_0.85fr_0.85fr_2.5rem] items-center gap-2 px-4 py-3.5 text-sm ${
-                i % 2 === 1 ? "bg-[#F6F6F6]" : "bg-transparent"
+              className={`relative grid min-w-[920px] grid-cols-[0.9fr_1.15fr_0.9fr_0.9fr_0.8fr_0.8fr_2.5rem] items-center gap-2 px-4 py-3.5 text-sm ${
+                index % 2 === 1 ? "bg-[#F6F6F6]" : "bg-transparent"
               }`}
             >
               <span className="truncate font-mono text-xs text-brand-text-secondary">{row.id}</span>
-              <span className="truncate font-medium text-brand-text-primary">{row.subject}</span>
-              <span className="truncate text-brand-text-secondary">{row.reporter}</span>
-              <span className="truncate text-brand-text-secondary">{row.category}</span>
+              <span className="truncate font-medium text-brand-text-primary">{row.issueType}</span>
+              <span className="truncate text-brand-text-secondary">{row.farmerId}</span>
+              <span className="truncate text-brand-text-secondary">{row.userId}</span>
+              <span className="truncate text-brand-text-secondary">{row.createdAt}</span>
               <span
                 className={`truncate font-medium ${
                   row.status === "Open"
@@ -144,7 +169,7 @@ export default function AdminReportedIssuesPage() {
               <div className="relative flex justify-center">
                 <button
                   type="button"
-                  onClick={() => setMenuId((v) => (v === row.id ? null : row.id))}
+                  onClick={() => setMenuId((value) => (value === row.id ? null : row.id))}
                   className="rounded-lg p-1.5 text-brand-text-muted hover:bg-black/[0.04] hover:text-brand-text-primary"
                   aria-label={`Actions for ${row.id}`}
                 >
@@ -160,26 +185,7 @@ export default function AdminReportedIssuesPage() {
                         navigate(`/reported-issues/${encodeURIComponent(row.id)}`);
                       }}
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f0f0f0] text-brand-text-primary">
-                        <List size={18} strokeWidth={1.8} />
-                      </span>
                       View details
-                    </button>
-                    <div className="mx-3 border-t border-[#e4e4e4]" />
-                    <button
-                      type="button"
-                      disabled={row.status === "Resolved"}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left font-sans text-sm font-medium text-brand-text-primary hover:bg-[#f6f6f6] disabled:cursor-not-allowed disabled:opacity-45"
-                      onClick={() => {
-                        setMenuId(null);
-                        markReportedIssueResolved(row.id);
-                        setStatusTick();
-                      }}
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f0f0f0] text-brand-text-primary">
-                        <BadgeCheck size={18} strokeWidth={1.8} />
-                      </span>
-                      Mark as resolved
                     </button>
                   </div>
                 ) : null}

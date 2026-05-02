@@ -15,5 +15,13 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+    proxy: {
+      "/api": {
+        target: "https://hashmaramala-production.up.railway.app",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+    },
   },
 });

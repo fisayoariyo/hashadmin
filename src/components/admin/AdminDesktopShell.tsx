@@ -15,7 +15,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { clearAdminSession, getAdminSession } from "@/lib/adminSession";
+import { clearAdminSession, getAdminAuthState, getAdminSession } from "@/lib/adminSession";
 import tractorIcon from "@/assets/comps/tractor.svg";
 
 /** Mirrors `AgentDesktopShell` nav `key` → route mapping in `hashmar-farmer-app`. */
@@ -70,6 +70,7 @@ export default function AdminDesktopShell({
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [adminName, setAdminName] = useState("Admin");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
     if (!profileMenuOpen) return;
@@ -85,6 +86,10 @@ export default function AdminDesktopShell({
     void getAdminSession().then((session) => {
       if (active && session?.displayName) setAdminName(session.displayName);
     });
+    const auth = getAdminAuthState();
+    if (active) {
+      setIsSuperAdmin(auth?.role === "SUPER_ADMIN");
+    }
     return () => {
       active = false;
     };
@@ -159,24 +164,26 @@ export default function AdminDesktopShell({
               })}
             </nav>
 
-            <div className="mt-3">
-              <button
-                type="button"
-                onClick={() => navigate("/admins/create")}
-                className={`flex h-[45px] w-full items-center gap-[10px] rounded-[10px] px-[14px] text-left text-[15px] font-normal leading-[18px] transition-colors ${
-                  active === "create-admin"
-                    ? "bg-[#03624D] text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)]"
-                    : "text-[#030F0F]/80 hover:bg-[#03624D]/10 hover:text-[#03624D]"
-                }`}
-              >
-                <UserPlus
-                  size={20}
-                  strokeWidth={active === "create-admin" ? 2.1 : 1.9}
-                  className={active === "create-admin" ? "text-white" : "text-[#030F0F]"}
-                />
-                Create Admin
-              </button>
-            </div>
+            {isSuperAdmin ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => navigate("/admins/create")}
+                  className={`flex h-[45px] w-full items-center gap-[10px] rounded-[10px] px-[14px] text-left text-[15px] font-normal leading-[18px] transition-colors ${
+                    active === "create-admin"
+                      ? "bg-[#03624D] text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)]"
+                      : "text-[#030F0F]/80 hover:bg-[#03624D]/10 hover:text-[#03624D]"
+                  }`}
+                >
+                  <UserPlus
+                    size={20}
+                    strokeWidth={active === "create-admin" ? 2.1 : 1.9}
+                    className={active === "create-admin" ? "text-white" : "text-[#030F0F]"}
+                  />
+                  Create Admin
+                </button>
+              </div>
+            ) : null}
 
             <div
               ref={profileMenuRef}

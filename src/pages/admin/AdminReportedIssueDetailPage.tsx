@@ -1,12 +1,7 @@
-import { useReducer, type ReactNode } from "react";
+import { useEffect, type ReactNode, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, ExternalLink } from "lucide-react";
-import {
-  getAdminIssueDetail,
-  getMergedIssueStatus,
-  markReportedIssueResolved,
-  adminIssuesList,
-} from "@/mockData/adminReportedIssues";
+import { ArrowLeft } from "lucide-react";
+import { listSupportTickets, type AdminSupportTicketRow } from "@/lib/adminApi";
 
 const cardBody = "font-sans text-[15px] leading-[22px]";
 const labelCls = `${cardBody} font-normal text-brand-text-secondary`;
@@ -34,20 +29,63 @@ function CardSectionTitle({ children }: { children: ReactNode }) {
   );
 }
 
+function ticketTone(status: AdminSupportTicketRow["status"]): "amber" | "red" | "green" {
+  if (status === "Resolved") return "green";
+  if (status === "In review") return "amber";
+  return "red";
+}
+
 export default function AdminReportedIssueDetailPage() {
   const { issueId = "" } = useParams<{ issueId: string }>();
   const navigate = useNavigate();
   const id = decodeURIComponent(issueId);
-  const [, rerender] = useReducer((x: number) => x + 1, 0);
+  const [ticket, setTicket] = useState<AdminSupportTicketRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const baseRow = adminIssuesList.find((r) => r.id === id);
-  const detail = getAdminIssueDetail(id);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    listSupportTickets()
+      .then((tickets) => {
+        if (!active) return;
+        setTicket(tickets.find((row) => row.id === id) ?? null);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setTicket(null);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load support ticket.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
-  if (!detail || !baseRow) {
+  const detailCardClass =
+    "rounded-2xl border border-[#E8E8E8] bg-white px-6 py-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+
+  if (loading) {
     return (
       <div className="w-full pb-4">
         <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
-          <p className="font-sans text-[15px] text-brand-text-secondary">Issue not found.</p>
+          <p className="font-sans text-[15px] text-brand-text-secondary">Loading support ticket...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !ticket) {
+    return (
+      <div className="w-full pb-4">
+        <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
+          <p className="font-sans text-[15px] text-brand-text-secondary">
+            {error || "Support ticket not found."}
+          </p>
           <button
             type="button"
             onClick={() => navigate("/reported-issues")}
@@ -59,12 +97,6 @@ export default function AdminReportedIssueDetailPage() {
       </div>
     );
   }
-
-  const mergedStatus = getMergedIssueStatus(id, baseRow.status);
-  const isResolved = mergedStatus === "Resolved";
-
-  const detailCardClass =
-    "rounded-2xl border border-[#E8E8E8] bg-white px-6 py-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
 
   return (
     <div className="w-full space-y-6 pb-4">
@@ -81,86 +113,59 @@ export default function AdminReportedIssueDetailPage() {
           Reported Issue Details
         </h2>
 
-        {!isResolved ? (
-          <button
-            type="button"
-            onClick={() => {
-              markReportedIssueResolved(id);
-              rerender();
-            }}
-            className="inline-flex shrink-0 items-center justify-center gap-2.5 self-stretch rounded-2xl bg-[#005F4A] px-6 py-3.5 font-sans text-[15px] font-semibold leading-5 text-white shadow-[0_8px_20px_rgba(0,95,74,0.22)] transition hover:brightness-[1.03] active:scale-[0.99] sm:self-auto"
-          >
-            <BadgeCheck size={20} strokeWidth={2} className="shrink-0" />
-            Mark as resolved
-          </button>
-        ) : (
-          <span className="inline-flex shrink-0 items-center rounded-full bg-[#ECFDF5] px-3.5 py-1.5 font-sans text-[13px] font-semibold text-[#047857]">
-            Resolved
-          </span>
-        )}
+        <IssueStatusBadge label={ticket.status} tone={ticketTone(ticket.status)} />
       </div>
 
       <div className={detailCardClass}>
         <CardSectionTitle>Issue Details</CardSectionTitle>
         <div className="space-y-5">
           <p className={valueInline}>
-            <span className={labelCls}>Type of Issue : </span>
-            <span className="font-semibold">{detail.typeOfIssue}</span>
+            <span className={labelCls}>Ticket ID : </span>
+            <span className="font-semibold">{ticket.id}</span>
+          </p>
+          <p className={valueInline}>
+            <span className={labelCls}>Issue type : </span>
+            <span className="font-semibold">{ticket.issueType}</span>
           </p>
           <p className={valueInline}>
             <span className={labelCls}>Farmer ID : </span>
-            <span className="font-semibold">{detail.farmerId}</span>
+            <span className="font-semibold">{ticket.farmerId}</span>
+          </p>
+          <p className={valueInline}>
+            <span className={labelCls}>Reported by user ID : </span>
+            <span className="font-semibold">{ticket.userId}</span>
           </p>
 
           <div className="space-y-2">
             <p className={labelCls}>Description :</p>
             <p className="font-sans text-[15px] font-semibold leading-[1.55] text-brand-text-primary">
-              {detail.description}
+              {ticket.description}
             </p>
           </div>
 
           <p className={valueInline}>
-            <span className={labelCls}>Issue date : </span>
-            <span className="font-semibold">{detail.issueDate}</span>
+            <span className={labelCls}>Created at : </span>
+            <span className="font-semibold">{ticket.createdAt}</span>
           </p>
 
           <div className="flex flex-wrap items-center gap-2.5">
             <span className={labelCls}>Status :</span>
-            <IssueStatusBadge label={detail.statusLabel} tone={detail.statusTone} />
+            <IssueStatusBadge label={ticket.status} tone={ticketTone(ticket.status)} />
           </div>
         </div>
       </div>
 
       <div className={detailCardClass}>
-        <CardSectionTitle>Agent Details</CardSectionTitle>
-        <div className="flex flex-col gap-5">
-          <img
-            src={detail.agent.avatarUrl}
-            alt=""
-            className="h-[88px] w-[88px] shrink-0 rounded-lg object-cover ring-1 ring-black/[0.06]"
-          />
-          <div className="min-w-0 space-y-5">
-            <p className={valueInline}>
-              <span className={labelCls}>Full Name : </span>
-              <span className="font-semibold">{detail.agent.fullName}</span>
-            </p>
-            <p className={valueInline}>
-              <span className={labelCls}>Phone number : </span>
-              <span className="font-semibold">{detail.agent.phone}</span>
-            </p>
-            <p className={`break-words ${valueInline}`}>
-              <span className={labelCls}>Email : </span>
-              <span className="font-semibold">{detail.agent.email}</span>
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate(`/agents/${encodeURIComponent(detail.agent.agentId)}`)}
-              className="inline-flex items-center gap-1.5 pt-0.5 font-sans text-[15px] font-semibold leading-5 text-[#065F46] hover:underline"
-            >
-              View Agent Profile
-              <ExternalLink size={17} strokeWidth={2} className="shrink-0 opacity-90" />
-            </button>
-          </div>
+        <CardSectionTitle>Reporter Reference</CardSectionTitle>
+        <div className="space-y-5">
+          <p className={valueInline}>
+            <span className={labelCls}>User ID : </span>
+            <span className="font-semibold">{ticket.userId}</span>
+          </p>
+          <p className="font-sans text-[15px] leading-[1.55] text-brand-text-secondary">
+            The current admin support-ticket endpoint returns the reporter reference and issue data,
+            but not a full reporter profile.
+          </p>
         </div>
       </div>
     </div>

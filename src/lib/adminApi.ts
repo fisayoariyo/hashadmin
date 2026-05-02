@@ -7,6 +7,9 @@ import {
 const DEFAULT_BASE_URL = "https://hashmaramala-production.up.railway.app";
 
 function getBaseUrl() {
+  const configured = (import.meta.env.VITE_HASHMAR_API_BASE_URL as string | undefined)?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  if (import.meta.env.DEV) return "/api";
   return DEFAULT_BASE_URL.replace(/\/+$/, "");
 }
 
@@ -30,6 +33,48 @@ function extractRoot(data: unknown): Record<string, unknown> {
     return payload.data as Record<string, unknown>;
   }
   return payload;
+}
+
+function extractTokens(data: unknown) {
+  const root = extractRoot(data);
+  const tokenSource =
+    root.tokens && typeof root.tokens === "object"
+      ? (root.tokens as Record<string, unknown>)
+      : data && typeof data === "object" && (data as Record<string, unknown>).tokens && typeof (data as Record<string, unknown>).tokens === "object"
+        ? ((data as Record<string, unknown>).tokens as Record<string, unknown>)
+        : root;
+
+  return {
+    accessToken: readString(
+      tokenSource.access_token,
+      tokenSource.accessToken,
+      root.access_token,
+      root.accessToken,
+      root.token,
+    ),
+    refreshToken: readString(
+      tokenSource.refresh_token,
+      tokenSource.refreshToken,
+      root.refresh_token,
+      root.refreshToken,
+    ),
+  };
+}
+
+function extractAuthUser(data: unknown): Record<string, unknown> {
+  const root = extractRoot(data);
+  const nestedUser =
+    (root.user && typeof root.user === "object" && !Array.isArray(root.user) ? root.user : null) ||
+    (root.admin && typeof root.admin === "object" && !Array.isArray(root.admin) ? root.admin : null) ||
+    (data && typeof data === "object" && (data as Record<string, unknown>).user && typeof (data as Record<string, unknown>).user === "object"
+      ? (data as Record<string, unknown>).user
+      : null);
+
+  if (nestedUser && typeof nestedUser === "object" && !Array.isArray(nestedUser)) {
+    return nestedUser as Record<string, unknown>;
+  }
+
+  return root;
 }
 
 function findArray(payload: unknown, keys: string[]): unknown[] {
@@ -184,16 +229,10 @@ async function sessionFetch(
       method: "POST",
       body: { refresh_token: tokens.refreshToken },
     });
+    const nextTokens = extractTokens(refreshed);
     await updateAdminTokens({
-      accessToken: readString(
-        (refreshed as any)?.tokens?.access_token,
-        (refreshed as any)?.access_token,
-        (refreshed as any)?.token,
-      ),
-      refreshToken: readString(
-        (refreshed as any)?.tokens?.refresh_token,
-        (refreshed as any)?.refresh_token,
-      ),
+      accessToken: nextTokens.accessToken,
+      refreshToken: nextTokens.refreshToken,
     });
     return sessionFetch(path, opts, false);
   }
@@ -205,25 +244,18 @@ export async function loginAdmin(email: string, password: string) {
     body: { email, password },
   });
   const root = extractRoot(response);
-  const user = findObject(response, ["user", "admin", "data"]) as Record<string, unknown>;
+  const user = extractAuthUser(response);
+  const tokens = extractTokens(response);
   const role = readString(user?.role, root.role);
-  if (role && role !== "ADMIN") {
+  if (role && role !== "ADMIN" && role !== "SUPER_ADMIN") {
     throw new AdminApiError("This account is not an admin account.", 403, response);
   }
   await saveAdminSession(
     readString(user?.email, email),
     readString(user?.full_name, user?.name, "Admin"),
     {
-      accessToken: readString(
-        (response as any)?.tokens?.access_token,
-        (response as any)?.access_token,
-        (root as any)?.access_token,
-      ),
-      refreshToken: readString(
-        (response as any)?.tokens?.refresh_token,
-        (response as any)?.refresh_token,
-        (root as any)?.refresh_token,
-      ),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       userId: readString(user?.id),
       role: role || "ADMIN",
     },
@@ -495,4 +527,48 @@ export async function updateFarmer(farmerId: string, body: Record<string, unknow
     method: "PATCH",
     body: body as unknown,
   });
+}
+
+export type AdminSupportTicketStatus = "Open" | "In review" | "Resolved";
+
+export type AdminSupportTicketRow = {
+  id: string;
+  issueType: string;
+  description: string;
+  farmerId: string;
+  userId: string;
+  status: AdminSupportTicketStatus;
+  createdAt: string;
+  raw: Record<string, unknown>;
+};
+
+function mapSupportTicketStatus(value: string): AdminSupportTicketStatus {
+  const normalized = readString(value).toUpperCase();
+  if (normalized === "RESOLVED" || normalized === "CLOSED") return "Resolved";
+  if (normalized === "IN_REVIEW" || normalized === "IN REVIEW" || normalized === "PENDING") {
+    return "In review";
+  }
+  return "Open";
+}
+
+export async function listSupportTickets(): Promise<AdminSupportTicketRow[]> {
+  const payload = await sessionFetch("/admin/support/tickets");
+  return findArray(payload, ["data", "tickets", "items", "results", "records", "rows"])
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const item = row as Record<string, unknown>;
+      const id = readString(item.id);
+      if (!id) return null;
+      return {
+        id,
+        issueType: readString(item.issue_type, item.type, item.category) || "Reported issue",
+        description: readString(item.description, item.details) || "No description provided.",
+        farmerId: readString(item.farmer_id) || "-",
+        userId: readString(item.user_id, item.reporter_id) || "-",
+        status: mapSupportTicketStatus(readString(item.status)),
+        createdAt: formatDate(readString(item.created_at, item.updated_at)),
+        raw: item,
+      };
+    })
+    .filter(Boolean) as AdminSupportTicketRow[];
 }

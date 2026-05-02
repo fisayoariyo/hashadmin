@@ -1,8 +1,9 @@
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone, User } from "lucide-react";
 import { registerAdmin } from "@/lib/adminApi";
+import { getAdminAuthState } from "@/lib/adminSession";
 
 function nationalToE164Like(phone: string) {
   const digits = phone.replace(/\D/g, "");
@@ -22,9 +23,23 @@ export default function AdminCreateAdminPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [checkingRole, setCheckingRole] = useState(true);
+
+  useEffect(() => {
+    const auth = getAdminAuthState();
+    if (auth?.role !== "SUPER_ADMIN") {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+    setCheckingRole(false);
+  }, [navigate]);
 
   const inputShell =
     "flex min-h-[52px] items-center gap-3 rounded-2xl border border-[#e4e4e4] bg-white px-4 transition focus-within:border-[#03624D] focus-within:ring-1 focus-within:ring-[#03624D]";
+
+  if (checkingRole) {
+    return <p className="font-sans text-sm text-brand-text-secondary">Checking permissions...</p>;
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
