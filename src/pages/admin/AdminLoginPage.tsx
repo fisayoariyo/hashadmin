@@ -385,10 +385,10 @@ export default function AdminLoginPage() {
             className="mb-4 block h-11 w-auto max-w-[220px] object-contain object-left"
             draggable={false}
           />
-          <h2 className="mb-2 max-w-[26rem] font-display text-3xl font-bold leading-tight text-white lg:text-[2.15rem]">
+          <h2 className="mb-2 font-display text-3xl font-bold leading-tight text-white lg:text-[2.15rem]">
             Manage Farmers and Field Operations
           </h2>
-          <p className="max-w-[28rem] font-sans text-[0.95rem] leading-snug text-white/90 lg:text-[1.05rem]">
+          <p className="font-sans text-[0.95rem] leading-snug text-white/90 lg:text-[1.05rem]">
             Access the dashboard to oversee farmer registrations, monitor agent activities, and
             keep the entire system running smoothly.
           </p>
