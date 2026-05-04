@@ -236,7 +236,7 @@ export default function AdminFarmerDetailPage() {
           </button>
           <button
             type="button"
-            onClick={() => setError("Farmer deactivation is not exposed as a dedicated backend endpoint yet.")}
+            onClick={() => setError("Farmer deactivation is currently unavailable.")}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#03624D] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
           >
             Deactivate

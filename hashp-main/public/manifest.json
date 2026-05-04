@@ -1,0 +1,24 @@
+{
+  "name": "HFEI by Hashmar Cropex Ltd",
+  "short_name": "HFEI",
+  "description": "Verified Digital Farmer Identity Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#155235",
+  "theme_color": "#155235",
+  "icons": [
+    {
+      "src": "/brand/HFEI_Logomark.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/HFEI_Logomark.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

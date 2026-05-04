@@ -58,7 +58,7 @@ export default function AdminLoginPage() {
   };
 
   const startForgot = () => {
-    setError("Admin password reset is not exposed in the backend Swagger yet.");
+    setError("Password reset is currently unavailable. Please contact support.");
   };
 
   const handleOtpContinue = async () => {
@@ -242,7 +242,7 @@ export default function AdminLoginPage() {
               </button>
             </p>
             <p className="mt-3 text-center font-sans text-xs text-brand-text-muted">
-              Demo: any 4 digits
+              Enter the 4-digit code sent to your email.
             </p>
             {error ? (
               <p className="mt-8 text-center text-xs text-red-500">{error}</p>

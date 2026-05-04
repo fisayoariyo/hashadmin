@@ -89,7 +89,7 @@ export default function AdminCreateAdminPage() {
           </div>
 
           <p className="font-sans text-sm text-brand-text-secondary">
-            Use the backend admin registration contract to create another admin account. Access control is still enforced by the backend.
+            Create another admin account. Access is restricted to authorized users.
           </p>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

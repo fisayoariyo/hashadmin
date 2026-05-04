@@ -109,13 +109,13 @@ export default function AdminDashboardPage() {
         key: "farmers",
         label: "Total Farmers Registered",
         value: String(farmers.length),
-        changeLabel: farmers.length ? "Live from backend" : "No farmer data yet",
+        changeLabel: farmers.length ? "Updated from latest records" : "No farmer data yet",
       },
       {
         key: "agents",
         label: "Total Agents",
         value: "—",
-        changeLabel: "Agent list endpoint not in Swagger yet",
+        changeLabel: "Agent data will appear when available",
       },
       {
         key: "activeAgents",

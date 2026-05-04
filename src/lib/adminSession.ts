@@ -67,7 +67,6 @@ export function normalizeAdminRole(role: string | undefined): "" | "ADMIN" | "SU
 export function getNormalizedAdminRole(): "" | "ADMIN" | "SUPER_ADMIN" {
   return normalizeAdminRole(getAdminAuthState()?.role);
 }
-
 export function getAdminAuthState() {
   return readStoredAuthState();
 }

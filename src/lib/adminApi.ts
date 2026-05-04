@@ -276,15 +276,27 @@ export async function registerAdmin(input: {
   phoneNumber: string;
   password: string;
 }) {
-  return sessionFetch("/admin/register", {
-    method: "POST",
-    body: {
-      full_name: input.fullName.trim(),
-      email: input.email.trim(),
-      phone_number: input.phoneNumber.trim(),
-      password: input.password,
-    },
-  });
+  const body = {
+    full_name: input.fullName.trim(),
+    email: input.email.trim(),
+    phone_number: input.phoneNumber.trim(),
+    password: input.password,
+  };
+  try {
+    return await sessionFetch("/admin/register", {
+      method: "POST",
+      body,
+    });
+  } catch (error) {
+    // Some deployed backends expose only the super-admin registration route.
+    if (error instanceof AdminApiError && error.status === 404) {
+      return sessionFetch("/superadmin/register", {
+        method: "POST",
+        body,
+      });
+    }
+    throw error;
+  }
 }
 
 export type AdminGeoOption = { id: string; name: string };
