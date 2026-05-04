@@ -1,0 +1,150 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Outfit:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    
+  }
+  body {
+    @apply font-sans bg-brand-bg-page text-brand-text-primary antialiased;
+    margin: 0;
+    padding: 0;
+    min-height: 100dvh;
+    overscroll-behavior: none;
+  }
+  #root {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@layer components {
+  /* ── Farmer screens: mobile-first card shell ── */
+  .farmer-shell {
+    @apply flex flex-col min-h-dvh w-full bg-brand-bg-page;
+    /* Desktop: centered card with background on sides */
+  }
+  .farmer-shell > * {
+    @apply w-full;
+  }
+  @screen md {
+    .farmer-shell {
+      @apply bg-brand-green-muted items-center justify-start;
+    }
+    .farmer-card {
+      @apply max-w-mobile w-full mx-auto bg-white min-h-screen shadow-card-lg;
+    }
+  }
+
+  /* ── Agent screens: mobile full-width, desktop sidebar layout ── */
+  .agent-shell {
+    @apply flex min-h-dvh w-full bg-brand-bg-page;
+  }
+
+  /* ── Shared buttons ── */
+  .btn-primary {
+    @apply w-full bg-brand-green text-white font-display font-semibold text-base
+           py-4 px-6 rounded-3xl transition-all duration-200
+           active:scale-95 active:brightness-90
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-amber {
+    @apply w-full bg-brand-amber text-white font-display font-semibold text-base
+           py-4 px-6 rounded-3xl transition-all duration-200 active:scale-95;
+  }
+  .btn-outline {
+    @apply w-full border-2 border-brand-green text-brand-green font-display font-semibold
+           text-base py-4 px-6 rounded-3xl transition-all duration-200 active:scale-95;
+  }
+  .btn-ghost {
+    @apply w-full bg-gray-100 text-brand-text-secondary font-display font-semibold
+           text-base py-4 px-6 rounded-3xl transition-all duration-200 active:scale-95;
+  }
+
+  /* Compact pill CTA — matches ID-card photo scale (~7rem), not full-width */
+  .btn-capture-pill {
+    @apply inline-flex items-center justify-center bg-brand-green text-white font-display font-semibold text-sm
+           py-3.5 px-10 rounded-full transition-all duration-200 min-w-[7rem]
+           active:scale-95 active:brightness-90
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white rounded-2xl shadow-card p-4;
+  }
+
+  /* ── Inputs ── */
+  .input-field {
+    @apply w-full bg-white border border-brand-border rounded-2xl px-4 py-3.5
+           text-brand-text-primary placeholder:text-brand-text-muted font-sans text-sm
+           focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent transition-all;
+  }
+
+  /* ── Page wrappers ── */
+  .page-container {
+    @apply flex flex-col min-h-dvh bg-brand-bg-page max-w-mobile md:max-w-none mx-auto w-full; 
+  }
+  .page-white {
+    @apply flex flex-col min-h-dvh bg-white max-w-mobile md:max-w-none mx-auto w-full;
+  }
+  .page-content {
+    @apply flex-1 px-4 pb-28 pt-4 overflow-y-auto;
+  }
+
+  /* ── Typography ── */
+  .section-title {
+    @apply font-display font-bold text-lg text-brand-text-primary mb-3;
+  }
+  .label-sm {
+    @apply text-xs text-brand-text-muted font-sans;
+  }
+  .value-md {
+    @apply text-sm font-semibold text-brand-text-primary font-sans;
+  }
+
+  /* ── Agent sidebar nav item ── */
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl font-sans font-medium
+           text-sm transition-all cursor-pointer;
+  }
+  .sidebar-link-active {
+    @apply bg-white/20 text-white;
+  }
+  .sidebar-link-inactive {
+    @apply text-white/60 hover:bg-white/10 hover:text-white;
+  }
+}
+
+@layer utilities {
+  .min-h-dvh { min-height: 100dvh; }
+  .h-dvh     { height: 100dvh; }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up { animation: slide-up 0.25s ease-out forwards; }
+
+@keyframes shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
