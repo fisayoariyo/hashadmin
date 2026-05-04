@@ -1,0 +1,85 @@
+=======================================================================
+HASHMAR - FARMER ENROLLMENT: FRONTEND OFFLINE SYNC INTEGRATION GUIDE
+=======================================================================
+
+Overview:
+To support the "Offline Enrollment" requirement for the Web App (PWA), 
+the backend has been updated with a batch sync endpoint and idempotency 
+protection.
+
+-----------------------------------------------------------------------
+1. LOCAL STORAGE STRATEGY (BROWSER)
+-----------------------------------------------------------------------
+* Storage: Use 'IndexedDB' (via libraries like 'idb' or 'Dexie.js'). 
+  Do NOT use localStorage as it is too small for photos/biometrics.
+* Record State: Each farmer record in IndexedDB should have a status:
+  - 'PENDING': Created while offline, not yet sent to server.
+  - 'SYNCING': Currently being sent to server.
+  - 'SYNCED': Successfully processed by server.
+
+-----------------------------------------------------------------------
+2. DATA STRUCTURE
+-----------------------------------------------------------------------
+When creating a record offline, the frontend MUST generate a unique 
+UUID for each farmer. This is the 'client_id'.
+
+Example Registration Object:
+{
+    "client_id": "550e8400-e29b-41d4-a716-446655440000", // CRITICAL
+    "full_name": "John Doe",
+    "phone_number": "08012345678",
+    "nin": "12345678901",
+    "bvn": "12345678901",
+    "gender": "M",
+    "state_of_origin": "Lagos",
+    "lga": "Ikeja",
+    "residential_address": "No 5, Street Name",
+    "date_of_birth": "1990-01-01T00:00:00Z",
+    "enrolled_by_agent_id": "AGENT_UUID_FROM_JWT_CLAIMS"
+}
+
+-----------------------------------------------------------------------
+3. THE SYNC ENDPOINT
+-----------------------------------------------------------------------
+Endpoint:  POST /farmers/sync
+Auth:      Bearer Token (JWT) required.
+Payload:   Array of registration objects.
+
+Example Payload:
+[
+    { "client_id": "uuid-1", "full_name": "Farmer A", ... },
+    { "client_id": "uuid-2", "full_name": "Farmer B", ... }
+]
+
+-----------------------------------------------------------------------
+4. SYNC LOGIC (THE "SYNC NOW" BUTTON)
+-----------------------------------------------------------------------
+1. Query IndexedDB for all records where status == 'PENDING'.
+2. If count == 0, show "Already up to date".
+3. If count > 0:
+   - Change local status to 'SYNCING'.
+   - POST the array to '/farmers/sync'.
+   - On 200 OK:
+     * The server returns an array of successfully created Farmers.
+     * Update local IndexedDB: mark these 'client_id's as 'SYNCED'.
+     * Delete successfully synced records from the "Pending" list.
+   - On Error:
+     * Revert status to 'PENDING' so the user can try again.
+
+-----------------------------------------------------------------------
+5. IDEMPOTENCY (SAFETY)
+-----------------------------------------------------------------------
+The backend uses 'ON CONFLICT (client_id) DO NOTHING'. 
+If the network fails during sync and the frontend sends the SAME 
+'client_id' again, the server will simply ignore the duplicate and 
+won't return an error. This makes the sync process extremely robust.
+
+-----------------------------------------------------------------------
+6. SEARCH & LISTING
+-----------------------------------------------------------------------
+The 'GET /farmers' endpoint now supports:
+- '?search=name_or_id': Search by Full Name or Farmer ID.
+- '?status=PENDING/SYNCED': Filter by sync status.
+- '?agent_id=uuid': Filter for "My Farmers" view.
+
+=======================================================================
