@@ -1,26 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { getGeoLgas, getGeoStates } from "@/lib/adminApi";
-import {
-  getLgasForState,
-  getLocalNigeriaStateLgaDirectory,
-  loadNigeriaStateLgaDirectory,
-  type NigeriaStateLgaDirectory,
-} from "@/mockData/nigeriaStateLga";
+
+type NigeriaStateLgaDirectory = {
+  states: string[];
+  lgasByState: Record<string, string[]>;
+};
+
+function getLgasForState(directory: NigeriaStateLgaDirectory, stateName: string) {
+  return directory.lgasByState[stateName] ?? [];
+}
 
 export function useNigeriaStateLga() {
-  const [directory, setDirectory] = useState<NigeriaStateLgaDirectory>(
-    getLocalNigeriaStateLgaDirectory(),
-  );
-  const [source, setSource] = useState<"backend" | "local">("local");
+  const [directory, setDirectory] = useState<NigeriaStateLgaDirectory>({
+    states: [],
+    lgasByState: {},
+  });
+  const [source, setSource] = useState<"backend" | "local">("backend");
 
   useEffect(() => {
     let alive = true;
-    const localDirectory = getLocalNigeriaStateLgaDirectory();
-
     async function load() {
       try {
         const states = await getGeoStates();
-        if (!states.length) throw new Error("Geo states are empty.");
+        if (!states.length) return;
 
         const lgasByState: Record<string, string[]> = {};
         await Promise.all(
@@ -37,15 +39,10 @@ export function useNigeriaStateLga() {
           });
           setSource("backend");
         }
-        return;
       } catch {
-        /* fallback below */
-      }
-
-      const data = await loadNigeriaStateLgaDirectory();
-      if (alive) {
-        setDirectory(data.states.length ? data : localDirectory);
-        setSource("local");
+        if (alive) {
+          setDirectory({ states: [], lgasByState: {} });
+        }
       }
     }
 

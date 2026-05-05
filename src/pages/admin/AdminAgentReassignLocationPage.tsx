@@ -2,9 +2,12 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronDown, CircleX, Save } from "lucide-react";
-import { getAdminAgentDetail } from "@/mockData/adminAgents";
 import { useNigeriaStateLga } from "@/hooks/useNigeriaStateLga";
-import { reassignAgentLocation } from "@/lib/adminApi";
+import {
+  getAdminAgentDetail,
+  reassignAgentLocation,
+  type AdminAgentDetail,
+} from "@/lib/adminApi";
 
 const outerCard =
   "rounded-2xl border border-[#E8E8E8] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:px-7 sm:py-7";
@@ -60,7 +63,8 @@ export default function AdminAgentReassignLocationPage() {
   const { agentId = "" } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
   const id = decodeURIComponent(agentId);
-  const agent = getAdminAgentDetail(id);
+  const [agent, setAgent] = useState<AdminAgentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
   const { states, getLgasForState } = useNigeriaStateLga();
 
   const [state, setState] = useState("");
@@ -71,6 +75,26 @@ export default function AdminAgentReassignLocationPage() {
   const lgasForState = useMemo(() => (state ? getLgasForState(state) : []), [getLgasForState, state]);
 
   useEffect(() => {
+    let active = true;
+    getAdminAgentDetail(id)
+      .then((row) => {
+        if (active) setAgent(row);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setAgent(null);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load agent.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
     if (!agent || states.length === 0) return;
     if (!states.includes(agent.state)) return;
     setState(agent.state);
@@ -78,11 +102,21 @@ export default function AdminAgentReassignLocationPage() {
     setLga(list.includes(agent.lga) ? agent.lga : "");
   }, [agent, states, getLgasForState]);
 
+  if (loading) {
+    return (
+      <div className="w-full pb-4">
+        <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
+          <p className="font-sans text-[15px] text-brand-text-secondary">Loading agent details...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!agent) {
     return (
       <div className="w-full pb-4">
         <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
-          <p className="font-sans text-[15px] text-brand-text-secondary">Agent not found.</p>
+          <p className="font-sans text-[15px] text-brand-text-secondary">{error || "Agent not found."}</p>
           <button
             type="button"
             onClick={() => navigate("/agents")}

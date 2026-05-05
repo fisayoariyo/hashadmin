@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, Filter, List, MoreVertical, Search } from "lucide-react";
-import { adminAgentsList, type AdminAgentListRow } from "@/mockData/adminAgents";
+import { listAdminAgents, type AdminAgentListRow } from "@/lib/adminApi";
 import { useNigeriaStateLga } from "@/hooks/useNigeriaStateLga";
 
 const selectClass =
@@ -45,6 +45,9 @@ export default function AdminAgentsPage() {
   const [stateFilter, setStateFilter] = useState("All states");
   const [lgaFilter, setLgaFilter] = useState("All LGAs");
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [rows, setRows] = useState<AdminAgentListRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const tableRef = useRef<HTMLDivElement>(null);
   const { states, getLgasForState } = useNigeriaStateLga();
 
@@ -64,15 +67,35 @@ export default function AdminAgentsPage() {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const rows = useMemo(() => {
-    return adminAgentsList.filter((row) => {
+  useEffect(() => {
+    let active = true;
+    listAdminAgents()
+      .then((items) => {
+        if (active) setRows(items);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setRows([]);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load agents.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
       if (!matchesNameSearch(row, searchApplied)) return false;
       if (statusFilter !== "All" && row.status !== statusFilter) return false;
       if (stateFilter !== "All states" && row.state !== stateFilter) return false;
       if (lgaFilter !== "All LGAs" && row.lga !== lgaFilter) return false;
       return true;
     });
-  }, [searchApplied, statusFilter, stateFilter, lgaFilter]);
+  }, [rows, searchApplied, statusFilter, stateFilter, lgaFilter]);
 
   const tableGrid =
     "grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.7fr)_minmax(0,0.85fr)_2.5rem] gap-2";
@@ -80,6 +103,7 @@ export default function AdminAgentsPage() {
   return (
     <div className="w-full pb-4">
       <h2 className="font-display text-[20px] font-bold leading-7 text-brand-text-primary">Agent Management</h2>
+      {error ? <p className="mt-3 font-sans text-sm text-red-600">{error}</p> : null}
 
       <div className="mt-5 flex w-full items-center gap-2 sm:max-w-[520px]">
         <div className="flex h-[44px] min-w-0 flex-1 items-center gap-3 rounded-full border border-[#e4e4e4] bg-white pl-4 pr-3">
@@ -189,12 +213,12 @@ export default function AdminAgentsPage() {
           <span>LGA</span>
           <span className="sr-only">Actions</span>
         </div>
-        {rows.length === 0 ? (
+        {filteredRows.length === 0 ? (
           <p className="px-4 py-10 text-center font-sans text-sm text-brand-text-secondary">
-            No agents match your filters.
+            {loading ? "Loading agents..." : "No agents match your filters."}
           </p>
         ) : (
-          rows.map((row, i) => (
+          filteredRows.map((row, i) => (
             <div
               key={row.id}
               className={`${tableGrid} min-w-[760px] items-center px-4 py-3.5 text-sm ${

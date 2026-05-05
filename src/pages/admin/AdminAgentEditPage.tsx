@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronDown, CircleX, Mail, Phone, Save } from "lucide-react";
-import { getAdminAgentDetail } from "@/mockData/adminAgents";
-import { updateAgent } from "@/lib/adminApi";
+import { getAdminAgentDetail, updateAgent, type AdminAgentDetail } from "@/lib/adminApi";
 
 const grid3 = "grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-3 md:gap-x-8 md:gap-y-7";
 
@@ -91,19 +90,55 @@ export default function AdminAgentEditPage() {
   const { agentId = "" } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
   const id = decodeURIComponent(agentId);
-  const agent = getAdminAgentDetail(id);
-  const [gender, setGender] = useState(agent?.gender ?? "Male");
-  const [fullName, setFullName] = useState(agent?.name ?? "");
-  const [phone, setPhone] = useState(nationalMobileDigits(agent?.phone ?? ""));
-  const [email, setEmail] = useState(agent?.email ?? "");
+  const [agent, setAgent] = useState<AdminAgentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [gender, setGender] = useState("Male");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getAdminAgentDetail(id)
+      .then((row) => {
+        if (!active) return;
+        setAgent(row);
+        setGender(row.gender || "Male");
+        setFullName(row.name);
+        setPhone(nationalMobileDigits(row.phone));
+        setEmail(row.email === "-" ? "" : row.email);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setAgent(null);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load agent.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="w-full pb-4">
+        <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
+          <p className="font-sans text-[15px] text-brand-text-secondary">Loading agent details...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!agent) {
     return (
       <div className="w-full pb-4">
         <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
-          <p className="font-sans text-[15px] text-brand-text-secondary">Agent not found.</p>
+          <p className="font-sans text-[15px] text-brand-text-secondary">{error || "Agent not found."}</p>
           <button
             type="button"
             onClick={() => navigate("/agents")}

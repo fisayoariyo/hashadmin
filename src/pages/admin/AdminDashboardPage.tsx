@@ -11,7 +11,15 @@ import { useNavigate } from "react-router-dom";
 import userArrowLeftRightIcon from "@/assets/icons/admin-dashboard/user-arrow-left-right.svg";
 import tractorIcon from "@/assets/icons/admin-dashboard/tractor.svg";
 import AdminStatCard from "@/components/admin/AdminStatCard";
-import { listFarmers, listPendingAgents, syncGeoData, type AdminFarmerRow, type PendingAgentRow } from "@/lib/adminApi";
+import {
+  listAdminAgents,
+  listFarmers,
+  listPendingAgents,
+  syncGeoData,
+  type AdminAgentListRow,
+  type AdminFarmerRow,
+  type PendingAgentRow,
+} from "@/lib/adminApi";
 
 function ChangePill({ text }: { text: string }) {
   return (
@@ -46,6 +54,7 @@ export default function AdminDashboardPage() {
   const menusRef = useRef<HTMLDivElement>(null);
   const [farmerMenuId, setFarmerMenuId] = useState<string | null>(null);
   const [farmers, setFarmers] = useState<AdminFarmerRow[]>([]);
+  const [agents, setAgents] = useState<AdminAgentListRow[]>([]);
   const [pendingAgents, setPendingAgents] = useState<PendingAgentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -66,22 +75,27 @@ export default function AdminDashboardPage() {
     let active = true;
     setLoading(true);
     setError("");
-    Promise.allSettled([listFarmers(), listPendingAgents()])
+    Promise.allSettled([listFarmers(), listPendingAgents(), listAdminAgents()])
       .then((results) => {
         if (!active) return;
-        const [farmersResult, agentsResult] = results;
+        const [farmersResult, pendingAgentsResult, agentsResult] = results;
         if (farmersResult.status === "fulfilled") {
           setFarmers(farmersResult.value);
         } else {
           setFarmers([]);
         }
-        if (agentsResult.status === "fulfilled") {
-          setPendingAgents(agentsResult.value);
+        if (pendingAgentsResult.status === "fulfilled") {
+          setPendingAgents(pendingAgentsResult.value);
         } else {
           setPendingAgents([]);
         }
+        if (agentsResult.status === "fulfilled") {
+          setAgents(agentsResult.value);
+        } else {
+          setAgents([]);
+        }
 
-        const errors = [farmersResult, agentsResult]
+        const errors = [farmersResult, pendingAgentsResult, agentsResult]
           .filter((result): result is PromiseRejectedResult => result.status === "rejected")
           .map((result) => (result.reason instanceof Error ? result.reason.message : "Request failed."));
         setError(errors[0] || "");
@@ -114,14 +128,14 @@ export default function AdminDashboardPage() {
       {
         key: "agents",
         label: "Total Agents",
-        value: "—",
-        changeLabel: "Agent data will appear when available",
+        value: String(agents.length),
+        changeLabel: agents.length ? "Live from admin agents list" : "No agents available",
       },
       {
         key: "activeAgents",
         label: "Active Agents",
-        value: "—",
-        changeLabel: "Needs admin agent list endpoint",
+        value: String(agents.filter((row) => row.status === "Active").length),
+        changeLabel: "Computed from live agent statuses",
       },
       {
         key: "farmersToday",
@@ -136,7 +150,7 @@ export default function AdminDashboardPage() {
         changeLabel: pendingAgents.length ? "Awaiting review" : "No pending agents",
       },
     ],
-    [farmers, pendingAgents],
+    [farmers, pendingAgents, agents],
   );
 
   const handleGeoSync = async () => {

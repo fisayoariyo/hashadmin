@@ -1,7 +1,8 @@
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CircleX, ExternalLink, MapPin, Pencil } from "lucide-react";
-import { getAdminAgentDetail } from "@/mockData/adminAgents";
+import { getAdminAgentDetail, type AdminAgentDetail } from "@/lib/adminApi";
 
 const cardClass =
   "rounded-2xl border border-[#E8E8E8] bg-white px-6 py-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
@@ -43,13 +44,45 @@ export default function AdminAgentDetailPage() {
   const { agentId = "" } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
   const id = decodeURIComponent(agentId);
-  const agent = getAdminAgentDetail(id);
+  const [agent, setAgent] = useState<AdminAgentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getAdminAgentDetail(id)
+      .then((row) => {
+        if (active) setAgent(row);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setAgent(null);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load agent.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="w-full pb-4">
+        <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
+          <p className="font-sans text-[15px] text-brand-text-secondary">Loading agent details...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!agent) {
     return (
       <div className="w-full pb-4">
         <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
-          <p className="font-sans text-[15px] text-brand-text-secondary">Agent not found.</p>
+          <p className="font-sans text-[15px] text-brand-text-secondary">{error || "Agent not found."}</p>
           <button
             type="button"
             onClick={() => navigate("/agents")}

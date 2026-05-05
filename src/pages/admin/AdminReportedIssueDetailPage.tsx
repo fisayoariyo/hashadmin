@@ -1,7 +1,12 @@
 import { useEffect, type ReactNode, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { listSupportTickets, type AdminSupportTicketRow } from "@/lib/adminApi";
+import {
+  getSupportTicketById,
+  updateSupportTicketStatus,
+  type AdminSupportTicketRow,
+  type AdminSupportTicketStatus,
+} from "@/lib/adminApi";
 
 const cardBody = "font-sans text-[15px] leading-[22px]";
 const labelCls = `${cardBody} font-normal text-brand-text-secondary`;
@@ -42,15 +47,16 @@ export default function AdminReportedIssueDetailPage() {
   const [ticket, setTicket] = useState<AdminSupportTicketRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [nextStatus, setNextStatus] = useState<AdminSupportTicketStatus>("Open");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError("");
-    listSupportTickets()
-      .then((tickets) => {
+    getSupportTicketById(id)
+      .then((row) => {
         if (!active) return;
-        setTicket(tickets.find((row) => row.id === id) ?? null);
+        setTicket(row);
+        setNextStatus(row.status);
       })
       .catch((fetchError) => {
         if (active) {
@@ -114,6 +120,45 @@ export default function AdminReportedIssueDetailPage() {
         </h2>
 
         <IssueStatusBadge label={ticket.status} tone={ticketTone(ticket.status)} />
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-[#E8E8E8] bg-white p-4 sm:flex-row sm:items-end sm:justify-between">
+        <label className="flex min-w-[220px] flex-col gap-1.5 font-sans text-sm text-brand-text-secondary">
+          Update status
+          <select
+            value={nextStatus}
+            onChange={(event) => setNextStatus(event.target.value as AdminSupportTicketStatus)}
+            className="h-11 rounded-xl border border-[#e4e4e4] bg-white px-3 font-sans text-sm text-brand-text-primary outline-none focus:border-[#03624D] focus:ring-1 focus:ring-[#03624D]"
+          >
+            <option value="Open">Open</option>
+            <option value="In review">In review</option>
+            <option value="Resolved">Resolved</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          disabled={saving || nextStatus === ticket.status}
+          onClick={async () => {
+            setSaving(true);
+            setError("");
+            try {
+              const updated = await updateSupportTicketStatus(ticket.id, nextStatus);
+              setTicket(updated);
+              setNextStatus(updated.status);
+            } catch (submitError) {
+              setError(
+                submitError instanceof Error
+                  ? submitError.message
+                  : "Could not update support ticket status.",
+              );
+            } finally {
+              setSaving(false);
+            }
+          }}
+          className="inline-flex h-11 items-center justify-center rounded-xl bg-[#03624D] px-5 font-sans text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save status"}
+        </button>
       </div>
 
       <div className={detailCardClass}>

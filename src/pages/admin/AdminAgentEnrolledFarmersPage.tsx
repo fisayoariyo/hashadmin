@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, MoreVertical, Search } from "lucide-react";
-import { getAdminAgentDetail, getAgentEnrolledFarmers, type AdminAgentEnrolledFarmerRow } from "@/mockData/adminAgents";
+import {
+  getAdminAgentDetail,
+  getAgentEnrolledFarmers,
+  type AdminAgentDetail,
+  type AdminAgentEnrolledFarmerRow,
+} from "@/lib/adminApi";
 
 function matchesSearch(row: AdminAgentEnrolledFarmerRow, q: string) {
   if (!q.trim()) return true;
@@ -16,7 +21,10 @@ export default function AdminAgentEnrolledFarmersPage() {
   const { agentId = "" } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
   const id = decodeURIComponent(agentId);
-  const agent = getAdminAgentDetail(id);
+  const [agent, setAgent] = useState<AdminAgentDetail | null>(null);
+  const [allRows, setAllRows] = useState<AdminAgentEnrolledFarmerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [searchApplied, setSearchApplied] = useState("");
   const [menuId, setMenuId] = useState<string | null>(null);
@@ -30,8 +38,28 @@ export default function AdminAgentEnrolledFarmersPage() {
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
-
-  const allRows = useMemo(() => (agent ? getAgentEnrolledFarmers(agent.agentId) : []), [agent]);
+  useEffect(() => {
+    let active = true;
+    Promise.all([getAdminAgentDetail(id), getAgentEnrolledFarmers(id)])
+      .then(([agentRow, farmerRows]) => {
+        if (!active) return;
+        setAgent(agentRow);
+        setAllRows(farmerRows);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setAgent(null);
+          setAllRows([]);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load agent farmers.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   const filtered = useMemo(
     () => allRows.filter((row) => matchesSearch(row, searchApplied)),
@@ -42,11 +70,21 @@ export default function AdminAgentEnrolledFarmersPage() {
   const visibleRows = filtered.slice(0, visibleCount);
   const canLoadMore = visibleRows.length < filtered.length;
 
+  if (loading) {
+    return (
+      <div className="w-full pb-4">
+        <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
+          <p className="font-sans text-[15px] text-brand-text-secondary">Loading enrolled farmers...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!agent) {
     return (
       <div className="w-full pb-4">
         <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
-          <p className="font-sans text-[15px] text-brand-text-secondary">Agent not found.</p>
+          <p className="font-sans text-[15px] text-brand-text-secondary">{error || "Agent not found."}</p>
           <button
             type="button"
             onClick={() => navigate("/agents")}
@@ -74,6 +112,7 @@ export default function AdminAgentEnrolledFarmersPage() {
         </button>
         Enrolled Farmers
       </h2>
+      {error ? <p className="font-sans text-sm text-red-600">{error}</p> : null}
 
       <div className="flex min-h-[52px] w-full items-stretch overflow-hidden rounded-full border border-[#e4e4e4] bg-white shadow-sm">
         <div className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-2">

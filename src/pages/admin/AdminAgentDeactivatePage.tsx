@@ -1,25 +1,55 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CircleX, Pencil } from "lucide-react";
 import DeactivateAgentConfirmModal from "@/components/admin/DeactivateAgentConfirmModal";
-import { getAdminAgentDetail } from "@/mockData/adminAgents";
-import { deactivateAgent } from "@/lib/adminApi";
+import { deactivateAgent, getAdminAgentDetail, type AdminAgentDetail } from "@/lib/adminApi";
 
 export default function AdminAgentDeactivatePage() {
   const { agentId = "" } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
   const id = decodeURIComponent(agentId);
-  const agent = getAdminAgentDetail(id);
+  const [agent, setAgent] = useState<AdminAgentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
   const [reason, setReason] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    let active = true;
+    getAdminAgentDetail(id)
+      .then((row) => {
+        if (active) setAgent(row);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setAgent(null);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load agent.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="w-full pb-4">
+        <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
+          <p className="font-sans text-[15px] text-brand-text-secondary">Loading agent details...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!agent) {
     return (
       <div className="w-full pb-4">
         <div className="rounded-2xl border border-[#e4e4e4] bg-white p-8 text-center shadow-sm">
-          <p className="font-sans text-[15px] text-brand-text-secondary">Agent not found.</p>
+          <p className="font-sans text-[15px] text-brand-text-secondary">{error || "Agent not found."}</p>
           <button
             type="button"
             onClick={() => navigate("/agents")}

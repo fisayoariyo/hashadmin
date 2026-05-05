@@ -191,3 +191,43 @@ export async function sqliteOutboxMarkAllPendingSynced(): Promise<number> {
     return n;
   });
 }
+
+export async function sqliteOutboxListPending(): Promise<SyncOutboxRecord[]> {
+  const db = await getDb();
+  const stmt = db.prepare(
+    "SELECT id, kind, payload_json, created_at, synced FROM outbox WHERE synced = 0 ORDER BY created_at ASC",
+  );
+  const rows: SyncOutboxRecord[] = [];
+  try {
+    while (stmt.step()) {
+      const [id, kind, payloadJson, createdAt, synced] = stmt.get() as [
+        number,
+        string,
+        string,
+        number,
+        number,
+      ];
+      rows.push({
+        id,
+        kind,
+        payloadJson,
+        createdAt,
+        synced: synced === 1 ? 1 : 0,
+      });
+    }
+    return rows;
+  } finally {
+    stmt.free();
+  }
+}
+
+export async function sqliteOutboxMarkSyncedByIds(ids: number[]): Promise<number> {
+  if (!ids.length) return 0;
+  return withWrite(async (db) => {
+    const placeholders = ids.map(() => "?").join(", ");
+    db.run(`UPDATE outbox SET synced = 1 WHERE synced = 0 AND id IN (${placeholders})`, ids);
+    const count = db.getRowsModified();
+    await persist(db);
+    return count;
+  });
+}

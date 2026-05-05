@@ -349,7 +349,8 @@ export async function listPendingAgents(): Promise<PendingAgentRow[]> {
     .map((row) => {
       if (!row || typeof row !== "object") return null;
       const item = row as Record<string, unknown>;
-      const id = readString(item.id, item.agent_id, item.user_id);
+      // Approval endpoint expects the backend agent identifier.
+      const id = readString(item.agent_id, item.id, item.user_id);
       if (!id) return null;
       return {
         id,
@@ -397,6 +398,126 @@ export async function reassignAgentLocation(agentId: string, input: { state: str
       lga: input.lga.trim(),
     },
   });
+}
+
+export type AdminAgentListRow = {
+  id: string;
+  agentId: string;
+  name: string;
+  phone: string;
+  regDate: string;
+  state: string;
+  lga: string;
+  status: "Active" | "Inactive" | "Pending";
+};
+
+export type AdminAgentDetail = {
+  agentId: string;
+  name: string;
+  email: string;
+  phone: string;
+  state: string;
+  lga: string;
+  status: AdminAgentListRow["status"];
+  farmersOnboarded: string;
+  gender: string;
+  registrationDate: string;
+  lastSync: string;
+  lastActive: string;
+  avatarUrl: string;
+  verificationLabel: string;
+};
+
+export type AdminAgentEnrolledFarmerRow = {
+  id: string;
+  farmerId: string;
+  name: string;
+  regDate: string;
+  state: string;
+  lga: string;
+};
+
+function mapAgentStatus(value: string): AdminAgentListRow["status"] {
+  const normalized = readString(value).toUpperCase();
+  if (normalized === "PENDING") return "Pending";
+  if (normalized === "INACTIVE" || normalized === "DEACTIVATED" || normalized === "SUSPENDED") {
+    return "Inactive";
+  }
+  return "Active";
+}
+
+function mapVerificationLabel(status: AdminAgentListRow["status"]) {
+  if (status === "Active") return "Verified";
+  if (status === "Pending") return "Pending";
+  return "Inactive";
+}
+
+export async function listAdminAgents(): Promise<AdminAgentListRow[]> {
+  const payload = await sessionFetch("/admin/agents");
+  return findArray(payload, ["data", "agents", "items", "results", "records", "rows"])
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const item = row as Record<string, unknown>;
+      const agentId = readString(item.agent_id, item.id, item.user_id);
+      if (!agentId) return null;
+      const status = mapAgentStatus(readString(item.status));
+      return {
+        id: readString(item.id, item.agent_id, item.user_id, agentId),
+        agentId,
+        name: readString(item.full_name, item.name, item.username, item.user_name) || "Agent",
+        phone: readString(item.phone_number, item.phone) || "-",
+        regDate: formatDate(readString(item.created_at, item.registration_date)),
+        state: readString(item.state) || "-",
+        lga: readString(item.lga) || "-",
+        status,
+      };
+    })
+    .filter(Boolean) as AdminAgentListRow[];
+}
+
+export async function getAdminAgentDetail(agentId: string): Promise<AdminAgentDetail> {
+  const payload = await sessionFetch(`/admin/agents/${encodeURIComponent(agentId)}`);
+  const row = findObject(payload, ["data", "agent", "item", "record"]) as Record<string, unknown>;
+  const status = mapAgentStatus(readString(row.status));
+  return {
+    agentId: readString(row.agent_id, row.id, row.user_id, agentId),
+    name: readString(row.full_name, row.name, row.username, row.user_name) || "Agent",
+    email: readString(row.email) || "-",
+    phone: readString(row.phone_number, row.phone) || "-",
+    state: readString(row.state) || "-",
+    lga: readString(row.lga) || "-",
+    status,
+    farmersOnboarded:
+      readString(row.farmers_onboarded, row.total_farmers_registered, row.total_farmers, 0) || "0",
+    gender: readString(row.gender) || "-",
+    registrationDate: formatDate(readString(row.created_at, row.registration_date)),
+    lastSync: readString(row.last_sync_at, row.last_sync) || "-",
+    lastActive: formatDate(readString(row.last_active_at, row.last_active, row.updated_at)),
+    avatarUrl: readString(row.avatar_url, row.profile_photo_url, row.photo_url) || "https://picsum.photos/200",
+    verificationLabel: readString(row.verification_label) || mapVerificationLabel(status),
+  };
+}
+
+export async function getAgentEnrolledFarmers(
+  agentId: string,
+): Promise<AdminAgentEnrolledFarmerRow[]> {
+  const payload = await sessionFetch(`/admin/agents/${encodeURIComponent(agentId)}/farmers`);
+  return findArray(payload, ["data", "farmers", "items", "results", "records", "rows"])
+    .map((row, index) => {
+      if (!row || typeof row !== "object") return null;
+      const item = row as Record<string, unknown>;
+      const farmerId = readString(item.farmer_id, item.id, item.client_id);
+      if (!farmerId) return null;
+      return {
+        id: readString(item.id, item.farmer_id) || `${agentId}-${index}`,
+        farmerId,
+        name: readString(item.full_name, item.name) || "Farmer",
+        regDate: formatDate(readString(item.created_at, item.registration_date)),
+        state: readString(item.state_of_origin, item.state) || "-",
+        lga: readString(item.lga, item.local_govt_area) || "-",
+      };
+    })
+    .filter(Boolean) as AdminAgentEnrolledFarmerRow[];
 }
 
 export type AdminFarmerRow = {
@@ -588,4 +709,51 @@ export async function listSupportTickets(): Promise<AdminSupportTicketRow[]> {
       };
     })
     .filter(Boolean) as AdminSupportTicketRow[];
+}
+
+function mapSupportTicketRow(row: unknown): AdminSupportTicketRow | null {
+  if (!row || typeof row !== "object") return null;
+  const item = row as Record<string, unknown>;
+  const id = readString(item.id);
+  if (!id) return null;
+  return {
+    id,
+    issueType: readString(item.issue_type, item.type, item.category) || "Reported issue",
+    description: readString(item.description, item.details) || "No description provided.",
+    farmerId: readString(item.farmer_id) || "-",
+    userId: readString(item.user_id, item.reporter_id) || "-",
+    status: mapSupportTicketStatus(readString(item.status)),
+    createdAt: formatDate(readString(item.created_at, item.updated_at)),
+    raw: item,
+  };
+}
+
+export async function getSupportTicketById(ticketId: string): Promise<AdminSupportTicketRow> {
+  const payload = await sessionFetch(`/admin/support/tickets/${encodeURIComponent(ticketId)}`);
+  const row = findObject(payload, ["data", "ticket", "item", "record"]);
+  const mapped = mapSupportTicketRow(row);
+  if (!mapped) throw new AdminApiError("Support ticket not found.", 404, payload);
+  return mapped;
+}
+
+export async function updateSupportTicketStatus(
+  ticketId: string,
+  status: AdminSupportTicketStatus,
+) {
+  const backendStatus = status === "In review" ? "IN_REVIEW" : status.toUpperCase();
+  const payload = await sessionFetch(`/admin/support/tickets/${encodeURIComponent(ticketId)}`, {
+    method: "PATCH",
+    body: { status: backendStatus },
+  });
+  const row = findObject(payload, ["data", "ticket", "item", "record"]);
+  const mapped = mapSupportTicketRow(row);
+  if (mapped) return mapped;
+  return getSupportTicketById(ticketId);
+}
+
+export async function replayOutbox(rows: Array<{ kind: string; payload: unknown }>) {
+  return sessionFetch("/admin/outbox/replay", {
+    method: "POST",
+    body: { rows },
+  });
 }

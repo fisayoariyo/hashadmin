@@ -1,7 +1,13 @@
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CircleX, MapPinned, Pencil, UserRound } from "lucide-react";
-import { getAdminEnrollingAgent } from "@/mockData/adminFarmers";
+import {
+  getFarmerDetail,
+  listAdminAgents,
+  type AdminAgentListRow,
+  type AdminFarmerDetailData,
+} from "@/lib/adminApi";
 
 function DetailField({ label, value }: { label: string; value: string | ReactNode }) {
   return (
@@ -27,13 +33,70 @@ export default function AdminFarmerEnrollingAgentPage() {
   const { farmerId = "" } = useParams<{ farmerId: string }>();
   const navigate = useNavigate();
   const id = decodeURIComponent(farmerId);
-  const agent = getAdminEnrollingAgent(id);
+  const [detail, setDetail] = useState<AdminFarmerDetailData | null>(null);
+  const [agents, setAgents] = useState<AdminAgentListRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const back = `/farmers/${encodeURIComponent(id)}`;
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([getFarmerDetail(id), listAdminAgents()])
+      .then(([farmerDetail, agentRows]) => {
+        if (!active) return;
+        setDetail(farmerDetail);
+        setAgents(agentRows);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setDetail(null);
+          setAgents([]);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load enrolling agent.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  const agent = useMemo(() => {
+    if (!detail) return null;
+    const agentName = (detail.enrollingAgent.fullName || "").trim();
+    const matched = agents.find(
+      (row) => agentName && row.name.trim().toLowerCase() === agentName.toLowerCase(),
+    );
+    return {
+      fullName: agentName || "Unavailable",
+      phone: matched?.phone || "-",
+      email: "-",
+      registrationDate: matched?.regDate || "-",
+      gender: "-",
+      status: matched?.status || "Pending",
+      state: detail.enrollingAgent.state || matched?.state || "-",
+      lga: detail.enrollingAgent.lga || matched?.lga || "-",
+      totalFarmersRegistered: "-",
+      lastSync: "-",
+      lastActive: "-",
+      photoUrl: null as string | null,
+      agentId: matched?.agentId || "",
+    };
+  }, [detail, agents]);
+
+  if (loading) {
+    return (
+      <div className="rounded-[20px] border border-[#e4e4e4] bg-white p-8 text-center">
+        <p className="font-sans text-sm text-brand-text-secondary">Loading enrolling agent...</p>
+      </div>
+    );
+  }
 
   if (!agent) {
     return (
       <div className="rounded-[20px] border border-[#e4e4e4] bg-white p-8 text-center">
-        <p className="font-sans text-sm text-brand-text-secondary">Profile not found.</p>
+        <p className="font-sans text-sm text-brand-text-secondary">{error || "Profile not found."}</p>
         <button
           type="button"
           onClick={() => navigate(back)}
@@ -64,6 +127,7 @@ export default function AdminFarmerEnrollingAgentPage() {
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
           <button
             type="button"
+            onClick={() => navigate(agent.agentId ? `/agents/${encodeURIComponent(agent.agentId)}/deactivate` : back)}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#dfeceb] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
           >
             Deactivate agent
@@ -71,6 +135,9 @@ export default function AdminFarmerEnrollingAgentPage() {
           </button>
           <button
             type="button"
+            onClick={() =>
+              navigate(agent.agentId ? `/agents/${encodeURIComponent(agent.agentId)}/reassign-location` : back)
+            }
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#dfeceb] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
           >
             Reassign location
@@ -78,7 +145,9 @@ export default function AdminFarmerEnrollingAgentPage() {
           </button>
           <button
             type="button"
-            onClick={() => navigate(`${back}/edit`)}
+            onClick={() =>
+              navigate(agent.agentId ? `/agents/${encodeURIComponent(agent.agentId)}/edit` : `${back}/edit`)
+            }
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#03624D] px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99]"
           >
             Edit Details
