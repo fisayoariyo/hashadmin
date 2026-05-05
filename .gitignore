@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Cropex farmer+agent app: develop in hashp-main repo; do not commit a nested copy here
+hashp-main/

@@ -353,7 +353,7 @@ export async function listPendingAgents(): Promise<PendingAgentRow[]> {
       if (!id) return null;
       return {
         id,
-        name: readString(item.full_name, item.name) || "Agent",
+        name: readString(item.full_name, item.name, item.username, item.user_name) || "Agent",
         phone: readString(item.phone_number, item.phone) || "-",
         email: readString(item.email) || "-",
         state: readString(item.state) || "-",

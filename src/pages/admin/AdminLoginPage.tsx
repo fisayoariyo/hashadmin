@@ -57,10 +57,6 @@ export default function AdminLoginPage() {
     }
   };
 
-  const startForgot = () => {
-    setError("Password reset is currently unavailable. Please contact support.");
-  };
-
   const handleOtpContinue = async () => {
     if (digits.join("").length < 4) {
       setError("Enter the 4-digit code.");
@@ -164,15 +160,6 @@ export default function AdminLoginPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={startForgot}
-                  className="font-sans text-sm font-semibold text-[#03624D] hover:underline"
-                >
-                  Forgot password?
-                </button>
-              </div>
             </div>
 
             {error ? (
