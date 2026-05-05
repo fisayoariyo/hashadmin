@@ -226,7 +226,7 @@ async function sessionFetch(
     if (!(error instanceof AdminApiError) || error.status !== 401 || !retry || !tokens.refreshToken) {
       throw error;
     }
-    const refreshed = await apiFetch("/agents/refresh", {
+    const refreshed = await apiFetch("/auth/refresh", {
       method: "POST",
       body: { refresh_token: tokens.refreshToken },
     });
