@@ -112,6 +112,108 @@ function formatDate(value: string) {
   return value.slice(0, 10).split("-").reverse().join("/");
 }
 
+function asNestedRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+/** Build "First Last" from pairs until one pair yields non-empty parts. */
+function composeFullNameFromPairs(...pairs: ReadonlyArray<readonly [unknown, unknown]>): string {
+  for (const [a, b] of pairs) {
+    const first = readString(a);
+    const last = readString(b);
+    if (!first && !last) continue;
+    return `${first} ${last}`.trim();
+  }
+  return "";
+}
+
+/**
+ * Many list/detail payloads nest profile under user/profile/agent/account or split name into parts.
+ */
+function resolveAgentDisplayFields(source: Record<string, unknown>) {
+  const user = asNestedRecord(source.user);
+  const profile = asNestedRecord(source.profile);
+  const account = asNestedRecord(source.account);
+  const agentNest = asNestedRecord(source.agent);
+
+  const name = readString(
+    source.full_name,
+    source.fullName,
+    source.display_name,
+    source.name,
+    source.username,
+    source.user_name,
+    agentNest?.full_name,
+    agentNest?.fullName,
+    agentNest?.display_name,
+    agentNest?.name,
+    user?.full_name,
+    user?.fullName,
+    user?.display_name,
+    user?.name,
+    user?.username,
+    profile?.full_name,
+    profile?.fullName,
+    profile?.name,
+    composeFullNameFromPairs(
+      [source.first_name, source.last_name],
+      [agentNest?.first_name, agentNest?.last_name],
+      [user?.first_name, user?.last_name],
+      [profile?.first_name, profile?.last_name],
+    ),
+  );
+
+  const phone = readString(
+    source.phone_number,
+    source.phone,
+    source.mobile,
+    source.mobile_phone,
+    source.telephone,
+    agentNest?.phone_number,
+    agentNest?.phone,
+    agentNest?.mobile,
+    user?.phone_number,
+    user?.phone,
+    profile?.phone_number,
+    profile?.phone,
+    account?.phone_number,
+    account?.phone,
+  );
+
+  const email = readString(
+    source.email,
+    agentNest?.email,
+    user?.email,
+    profile?.email,
+    account?.email,
+  );
+
+  const state = readString(
+    source.state,
+    source.state_name,
+    source.state_of_origin,
+    source.assigned_state,
+    source.operation_state,
+    agentNest?.state,
+    user?.state,
+    profile?.state,
+  );
+
+  const lga = readString(
+    source.lga,
+    source.lga_name,
+    source.local_government,
+    source.local_govt_area,
+    source.local_goverment_area,
+    agentNest?.lga,
+    user?.lga,
+    profile?.lga,
+  );
+
+  return { name, phone, email, state, lga };
+}
+
 function getErrorMessage(status: number, body: unknown) {
   if (typeof body === "string" && body.trim()) return body.trim();
   if (body && typeof body === "object") {
@@ -352,16 +454,24 @@ export async function listPendingAgents(): Promise<PendingAgentRow[]> {
       // Approval endpoint expects the backend agent identifier.
       const id = readString(item.agent_id, item.id, item.user_id);
       if (!id) return null;
+      const fields = resolveAgentDisplayFields(item);
+      const nestedUser = asNestedRecord(item.user);
+      const nestedProfile = asNestedRecord(item.profile);
+      const gender = readString(
+        item.gender,
+        nestedUser?.gender,
+        nestedProfile?.gender,
+      );
       return {
         id,
-        name: readString(item.full_name, item.name, item.username, item.user_name) || "Agent",
-        phone: readString(item.phone_number, item.phone) || "-",
-        email: readString(item.email) || "-",
-        state: readString(item.state) || "-",
-        lga: readString(item.lga) || "-",
+        name: fields.name || "Agent",
+        phone: fields.phone || "-",
+        email: fields.email || "-",
+        state: fields.state || "-",
+        lga: fields.lga || "-",
         status: readString(item.status).toUpperCase() === "ACTIVE" ? "verified" : "pending",
         registrationDate: formatDate(readString(item.created_at, item.registration_date)),
-        gender: readString(item.gender) || "-",
+        gender: gender || "-",
       };
     })
     .filter(Boolean) as PendingAgentRow[];
@@ -461,14 +571,15 @@ export async function listAdminAgents(): Promise<AdminAgentListRow[]> {
       const agentId = readString(item.agent_id, item.id, item.user_id);
       if (!agentId) return null;
       const status = mapAgentStatus(readString(item.status));
+      const fields = resolveAgentDisplayFields(item);
       return {
         id: readString(item.id, item.agent_id, item.user_id, agentId),
         agentId,
-        name: readString(item.full_name, item.name, item.username, item.user_name) || "Agent",
-        phone: readString(item.phone_number, item.phone) || "-",
+        name: fields.name || "Agent",
+        phone: fields.phone || "-",
         regDate: formatDate(readString(item.created_at, item.registration_date)),
-        state: readString(item.state) || "-",
-        lga: readString(item.lga) || "-",
+        state: fields.state || "-",
+        lga: fields.lga || "-",
         status,
       };
     })
@@ -479,17 +590,21 @@ export async function getAdminAgentDetail(agentId: string): Promise<AdminAgentDe
   const payload = await sessionFetch(`/admin/agents/${encodeURIComponent(agentId)}`);
   const row = findObject(payload, ["data", "agent", "item", "record"]) as Record<string, unknown>;
   const status = mapAgentStatus(readString(row.status));
+  const fields = resolveAgentDisplayFields(row);
+  const nestedUser = asNestedRecord(row.user);
+  const nestedProfile = asNestedRecord(row.profile);
+  const gender = readString(row.gender, nestedUser?.gender, nestedProfile?.gender);
   return {
     agentId: readString(row.agent_id, row.id, row.user_id, agentId),
-    name: readString(row.full_name, row.name, row.username, row.user_name) || "Agent",
-    email: readString(row.email) || "-",
-    phone: readString(row.phone_number, row.phone) || "-",
-    state: readString(row.state) || "-",
-    lga: readString(row.lga) || "-",
+    name: fields.name || "Agent",
+    email: fields.email || "-",
+    phone: fields.phone || "-",
+    state: fields.state || "-",
+    lga: fields.lga || "-",
     status,
     farmersOnboarded:
       readString(row.farmers_onboarded, row.total_farmers_registered, row.total_farmers, 0) || "0",
-    gender: readString(row.gender) || "-",
+    gender: gender || "-",
     registrationDate: formatDate(readString(row.created_at, row.registration_date)),
     lastSync: readString(row.last_sync_at, row.last_sync) || "-",
     lastActive: formatDate(readString(row.last_active_at, row.last_active, row.updated_at)),

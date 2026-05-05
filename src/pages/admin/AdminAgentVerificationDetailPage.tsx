@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BadgeCheck, CircleX } from "lucide-react";
 import cardPattern from "@/assets/comps/card-pattern-desktop.svg";
+import RejectAgentReasonModal from "@/components/admin/RejectAgentReasonModal";
 import { decideAgentApproval, listPendingAgents, type PendingAgentRow } from "@/lib/adminApi";
 
 function InfoCard({ title, children }: { title: string; children: ReactNode }) {
@@ -40,6 +41,7 @@ export default function AdminAgentVerificationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState<"" | "approve" | "reject">("");
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -67,14 +69,27 @@ export default function AdminAgentVerificationDetailPage() {
     [rows, verificationId],
   );
 
-  const handleDecision = async (status: "ACTIVE" | "REJECTED") => {
+  const handleApprove = async () => {
     if (!detail) return;
-    const rejectionReason =
-      status === "REJECTED" ? window.prompt("Enter rejection reason (optional):", "") || "" : "";
-    setActionLoading(status === "ACTIVE" ? "approve" : "reject");
+    setActionLoading("approve");
     setError("");
     try {
-      await decideAgentApproval(detail.id, status, rejectionReason);
+      await decideAgentApproval(detail.id, "ACTIVE", "");
+      navigate("/agent-verification", { replace: true });
+    } catch (decisionError) {
+      setError(decisionError instanceof Error ? decisionError.message : "Could not update agent status.");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleReject = async (reason: string) => {
+    if (!detail) return;
+    setActionLoading("reject");
+    setError("");
+    try {
+      await decideAgentApproval(detail.id, "REJECTED", reason);
+      setRejectModalOpen(false);
       navigate("/agent-verification", { replace: true });
     } catch (decisionError) {
       setError(decisionError instanceof Error ? decisionError.message : "Could not update agent status.");
@@ -104,6 +119,15 @@ export default function AdminAgentVerificationDetailPage() {
 
   return (
     <div className="w-full space-y-6 pb-4">
+      <RejectAgentReasonModal
+        open={rejectModalOpen}
+        onClose={() => {
+          if (actionLoading !== "reject") setRejectModalOpen(false);
+        }}
+        submitting={actionLoading === "reject"}
+        onConfirm={(reason) => void handleReject(reason)}
+      />
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <h2 className="flex items-center gap-2 font-display text-[20px] font-bold leading-6 text-brand-text-primary">
           <button
@@ -121,7 +145,7 @@ export default function AdminAgentVerificationDetailPage() {
           <button
             type="button"
             disabled={Boolean(actionLoading)}
-            onClick={() => void handleDecision("REJECTED")}
+            onClick={() => setRejectModalOpen(true)}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e4e4e4] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-brand-text-primary transition hover:bg-[#fafafa] disabled:opacity-50"
           >
             {actionLoading === "reject" ? "Rejecting..." : "Reject"}
@@ -132,7 +156,7 @@ export default function AdminAgentVerificationDetailPage() {
           <button
             type="button"
             disabled={Boolean(actionLoading)}
-            onClick={() => void handleDecision("ACTIVE")}
+            onClick={() => void handleApprove()}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#03624D] px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99] disabled:opacity-50"
           >
             {actionLoading === "approve" ? "Approving..." : "Approve"}
