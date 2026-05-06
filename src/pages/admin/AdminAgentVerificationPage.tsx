@@ -134,7 +134,7 @@ export default function AdminAgentVerificationPage() {
         </div>
       </div>
 
-      <div ref={tableRef} className="overflow-x-auto">
+      <div ref={tableRef} className="overflow-x-auto overflow-y-visible">
         <div className="min-w-[720px]">
           <div className="grid grid-cols-[minmax(8rem,1.2fr)_minmax(8rem,1fr)_minmax(5rem,0.65fr)_minmax(6rem,0.85fr)_minmax(6rem,0.85fr)_3rem] gap-3 px-5 py-3.5 text-left font-sans text-sm font-semibold text-brand-text-primary">
             <span>Name</span>
@@ -154,7 +154,7 @@ export default function AdminAgentVerificationPage() {
                 key={row.id}
                 className={`relative grid grid-cols-[minmax(8rem,1.2fr)_minmax(8rem,1fr)_minmax(5rem,0.65fr)_minmax(6rem,0.85fr)_minmax(6rem,0.85fr)_3rem] items-center gap-3 px-5 py-4 text-sm ${
                   index % 2 === 1 ? "bg-[#F6F6F6]" : "bg-transparent"
-                }`}
+                } ${menuId === row.id ? "z-20" : "z-0"}`}
               >
                 <span className="truncate font-sans font-medium text-brand-text-primary">{row.name}</span>
                 <span className="truncate font-sans text-brand-text-secondary">{row.phone}</span>

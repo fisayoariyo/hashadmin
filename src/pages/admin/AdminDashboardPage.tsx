@@ -2,9 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   ChevronRight,
-  LoaderCircle,
   MoreVertical,
-  RefreshCw,
   User,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -15,7 +13,6 @@ import {
   listAdminAgents,
   listFarmers,
   listPendingAgents,
-  syncGeoData,
   type AdminAgentListRow,
   type AdminFarmerRow,
   type PendingAgentRow,
@@ -58,8 +55,6 @@ export default function AdminDashboardPage() {
   const [pendingAgents, setPendingAgents] = useState<PendingAgentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [syncingGeo, setSyncingGeo] = useState(false);
-  const [geoMessage, setGeoMessage] = useState("");
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -153,23 +148,6 @@ export default function AdminDashboardPage() {
     [farmers, pendingAgents, agents],
   );
 
-  const handleGeoSync = async () => {
-    setSyncingGeo(true);
-    setGeoMessage("");
-    try {
-      const response = await syncGeoData();
-      const statsText =
-        (response as any)?.states_processed || (response as any)?.lgas_processed
-          ? `Geo sync completed: ${(response as any)?.states_processed ?? 0} states, ${(response as any)?.lgas_processed ?? 0} LGAs.`
-          : "Geo sync completed.";
-      setGeoMessage(statsText);
-    } catch (syncError) {
-      setGeoMessage(syncError instanceof Error ? syncError.message : "Geo sync failed.");
-    } finally {
-      setSyncingGeo(false);
-    }
-  };
-
   const statIcon = (key: (typeof stats)[number]["key"]) => {
     const userIcon = (
       <img
@@ -222,22 +200,7 @@ export default function AdminDashboardPage() {
             <p className="mt-2 font-sans text-sm text-red-600">{error}</p>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={() => void handleGeoSync()}
-          disabled={syncingGeo}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#03624D] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5 disabled:opacity-50"
-        >
-          {syncingGeo ? <LoaderCircle size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-          {syncingGeo ? "Syncing geo..." : "Run geo sync"}
-        </button>
       </div>
-
-      {geoMessage ? (
-        <div className="rounded-2xl border border-[#e4e4e4] bg-white px-4 py-3 font-sans text-sm text-brand-text-primary shadow-sm">
-          {geoMessage}
-        </div>
-      ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {stats.map((stat) => (

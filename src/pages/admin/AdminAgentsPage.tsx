@@ -7,12 +7,6 @@ import { useNigeriaStateLga } from "@/hooks/useNigeriaStateLga";
 const selectClass =
   "h-9 min-w-[120px] cursor-pointer appearance-none rounded-lg border border-transparent bg-transparent py-2 pl-2 pr-8 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-white/70 focus:border-[#e4e4e4] focus:bg-white sm:min-w-[132px]";
 
-function matchesNameSearch(row: AdminAgentListRow, q: string) {
-  if (!q.trim()) return true;
-  const s = q.trim().toLowerCase();
-  return row.name.toLowerCase().includes(s);
-}
-
 function statusPill(status: AdminAgentListRow["status"]) {
   if (status === "Active") {
     return (
@@ -69,7 +63,23 @@ export default function AdminAgentsPage() {
 
   useEffect(() => {
     let active = true;
-    listAdminAgents()
+    setLoading(true);
+    setError("");
+    const backendStatus =
+      statusFilter === "All"
+        ? undefined
+        : statusFilter === "Active"
+          ? "ACTIVE"
+          : statusFilter === "Pending"
+            ? "PENDING"
+            : undefined;
+
+    listAdminAgents({
+      status: backendStatus,
+      search: searchApplied.trim() || undefined,
+      page: 1,
+      pageSize: 200,
+    })
       .then((items) => {
         if (active) setRows(items);
       })
@@ -85,11 +95,10 @@ export default function AdminAgentsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [searchApplied, statusFilter]);
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
-      if (!matchesNameSearch(row, searchApplied)) return false;
       if (statusFilter !== "All" && row.status !== statusFilter) return false;
       if (stateFilter !== "All states" && row.state !== stateFilter) return false;
       if (lgaFilter !== "All LGAs" && row.lga !== lgaFilter) return false;

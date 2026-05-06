@@ -27,6 +27,23 @@ function readString(...values: unknown[]) {
   return "";
 }
 
+function readBooleanish(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") {
+      if (value === 1) return true;
+      if (value === 0) return false;
+    }
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (!normalized) continue;
+      if (normalized === "true" || normalized === "1" || normalized === "yes") return true;
+      if (normalized === "false" || normalized === "0" || normalized === "no") return false;
+    }
+  }
+  return undefined;
+}
+
 function extractRoot(data: unknown): Record<string, unknown> {
   if (!data || typeof data !== "object" || Array.isArray(data)) return {};
   const payload = data as Record<string, unknown>;
@@ -521,6 +538,13 @@ export type AdminAgentListRow = {
   status: "Active" | "Inactive" | "Pending";
 };
 
+export type ListAdminAgentsParams = {
+  status?: "ACTIVE" | "PENDING" | "SUSPENDED";
+  search?: string;
+  page?: number;
+  pageSize?: number;
+};
+
 export type AdminAgentDetail = {
   agentId: string;
   name: string;
@@ -547,7 +571,11 @@ export type AdminAgentEnrolledFarmerRow = {
   lga: string;
 };
 
-function mapAgentStatus(value: string): AdminAgentListRow["status"] {
+function mapAgentStatus(
+  value: string,
+  isActive?: boolean,
+): AdminAgentListRow["status"] {
+  if (isActive === false) return "Inactive";
   const normalized = readString(value).toUpperCase();
   if (normalized === "PENDING") return "Pending";
   if (normalized === "INACTIVE" || normalized === "DEACTIVATED" || normalized === "SUSPENDED") {
@@ -562,15 +590,32 @@ function mapVerificationLabel(status: AdminAgentListRow["status"]) {
   return "Inactive";
 }
 
-export async function listAdminAgents(): Promise<AdminAgentListRow[]> {
-  const payload = await sessionFetch("/admin/agents");
+export async function listAdminAgents(params: ListAdminAgentsParams = {}): Promise<AdminAgentListRow[]> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.search && params.search.trim()) query.set("search", params.search.trim());
+  if (typeof params.page === "number" && Number.isFinite(params.page) && params.page > 0) {
+    query.set("page", String(Math.trunc(params.page)));
+  }
+  if (typeof params.pageSize === "number" && Number.isFinite(params.pageSize) && params.pageSize > 0) {
+    query.set("page_size", String(Math.trunc(params.pageSize)));
+  }
+  const suffix = query.toString();
+  const payload = await sessionFetch(suffix ? `/admin/agents?${suffix}` : "/admin/agents");
   return findArray(payload, ["data", "agents", "items", "results", "records", "rows"])
     .map((row) => {
       if (!row || typeof row !== "object") return null;
       const item = row as Record<string, unknown>;
       const agentId = readString(item.agent_id, item.id, item.user_id);
       if (!agentId) return null;
-      const status = mapAgentStatus(readString(item.status));
+      const nestedUser = asNestedRecord(item.user);
+      const nestedAgent = asNestedRecord(item.agent);
+      const isActive = readBooleanish(
+        item.is_active,
+        nestedAgent?.is_active,
+        nestedUser?.is_active,
+      );
+      const status = mapAgentStatus(readString(item.status), isActive);
       const fields = resolveAgentDisplayFields(item);
       return {
         id: readString(item.id, item.agent_id, item.user_id, agentId),
@@ -589,9 +634,15 @@ export async function listAdminAgents(): Promise<AdminAgentListRow[]> {
 export async function getAdminAgentDetail(agentId: string): Promise<AdminAgentDetail> {
   const payload = await sessionFetch(`/admin/agents/${encodeURIComponent(agentId)}`);
   const row = findObject(payload, ["data", "agent", "item", "record"]) as Record<string, unknown>;
-  const status = mapAgentStatus(readString(row.status));
-  const fields = resolveAgentDisplayFields(row);
+  const nestedAgent = asNestedRecord(row.agent);
   const nestedUser = asNestedRecord(row.user);
+  const isActive = readBooleanish(
+    row.is_active,
+    nestedAgent?.is_active,
+    nestedUser?.is_active,
+  );
+  const status = mapAgentStatus(readString(row.status), isActive);
+  const fields = resolveAgentDisplayFields(row);
   const nestedProfile = asNestedRecord(row.profile);
   const gender = readString(row.gender, nestedUser?.gender, nestedProfile?.gender);
   return {
