@@ -664,7 +664,7 @@ export async function getAdminAgentDetail(agentId: string): Promise<AdminAgentDe
     registrationDate: formatDate(readString(row.created_at, row.registration_date)),
     lastSync: readString(row.last_sync_at, row.last_sync) || "-",
     lastActive: formatDate(readString(row.last_active_at, row.last_active, row.updated_at)),
-    avatarUrl: readString(row.avatar_url, row.profile_photo_url, row.photo_url) || "https://picsum.photos/200",
+    avatarUrl: readString(row.avatar_url, row.profile_photo_url, row.photo_url) || "/avatar-placeholder.svg",
     verificationLabel: readString(row.verification_label) || mapVerificationLabel(status),
   };
 }
