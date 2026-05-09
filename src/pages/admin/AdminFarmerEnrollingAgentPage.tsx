@@ -1,0 +1,199 @@
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, CircleX, MapPinned, Pencil, UserRound } from "lucide-react";
+import {
+  getFarmerDetail,
+  listAdminAgents,
+  type AdminAgentListRow,
+  type AdminFarmerDetailData,
+} from "@/lib/adminApi";
+
+function DetailField({ label, value }: { label: string; value: string | ReactNode }) {
+  return (
+    <p className="font-sans text-sm leading-6 text-brand-text-primary">
+      <span className="font-normal">{label} :</span>{" "}
+      <span className="font-semibold">{value}</span>
+    </p>
+  );
+}
+
+function InfoCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-[20px] border border-[#f1f1f1] bg-white px-6 py-5">
+      <h3 className="mb-4 font-sans text-sm font-medium leading-5 text-[#9B9B9B]">
+        {title}
+      </h3>
+      <div className="space-y-3.5">{children}</div>
+    </section>
+  );
+}
+
+export default function AdminFarmerEnrollingAgentPage() {
+  const { farmerId = "" } = useParams<{ farmerId: string }>();
+  const navigate = useNavigate();
+  const id = decodeURIComponent(farmerId);
+  const [detail, setDetail] = useState<AdminFarmerDetailData | null>(null);
+  const [agents, setAgents] = useState<AdminAgentListRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const back = `/farmers/${encodeURIComponent(id)}`;
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([getFarmerDetail(id), listAdminAgents()])
+      .then(([farmerDetail, agentRows]) => {
+        if (!active) return;
+        setDetail(farmerDetail);
+        setAgents(agentRows);
+      })
+      .catch((fetchError) => {
+        if (active) {
+          setDetail(null);
+          setAgents([]);
+          setError(fetchError instanceof Error ? fetchError.message : "Could not load enrolling agent.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  const agent = useMemo(() => {
+    if (!detail) return null;
+    const agentName = (detail.enrollingAgent.fullName || "").trim();
+    const matched = agents.find(
+      (row) => agentName && row.name.trim().toLowerCase() === agentName.toLowerCase(),
+    );
+    return {
+      fullName: agentName || "Unavailable",
+      phone: matched?.phone || "-",
+      email: "-",
+      registrationDate: matched?.regDate || "-",
+      gender: "-",
+      status: matched?.status || "Pending",
+      state: detail.enrollingAgent.state || matched?.state || "-",
+      lga: detail.enrollingAgent.lga || matched?.lga || "-",
+      totalFarmersRegistered: "-",
+      lastSync: "-",
+      lastActive: "-",
+      photoUrl: null as string | null,
+      agentId: matched?.agentId || "",
+    };
+  }, [detail, agents]);
+
+  if (loading) {
+    return (
+      <div className="rounded-[20px] border border-[#e4e4e4] bg-white p-8 text-center">
+        <p className="font-sans text-sm text-brand-text-secondary">Loading enrolling agent...</p>
+      </div>
+    );
+  }
+
+  if (!agent) {
+    return (
+      <div className="rounded-[20px] border border-[#e4e4e4] bg-white p-8 text-center">
+        <p className="font-sans text-sm text-brand-text-secondary">{error || "Profile not found."}</p>
+        <button
+          type="button"
+          onClick={() => navigate(back)}
+          className="mt-4 font-sans text-sm font-semibold text-[#03624D] hover:underline"
+        >
+          Back
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full space-y-6 pb-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 font-display text-[20px] font-bold leading-6 text-brand-text-primary">
+            <button
+              type="button"
+              onClick={() => navigate(back)}
+              className="rounded-lg p-1 text-brand-text-muted hover:bg-black/[0.04] hover:text-brand-text-primary"
+              aria-label="Back to farmer"
+            >
+              <ArrowLeft size={22} strokeWidth={2} />
+            </button>
+            Enrolling Agent
+          </h2>
+        </div>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+          <button
+            type="button"
+            onClick={() => navigate(agent.agentId ? `/agents/${encodeURIComponent(agent.agentId)}/deactivate` : back)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#dfeceb] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
+          >
+            Deactivate agent
+            <CircleX size={18} strokeWidth={1.9} />
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              navigate(agent.agentId ? `/agents/${encodeURIComponent(agent.agentId)}/reassign-location` : back)
+            }
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#dfeceb] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#03624D] transition hover:bg-[#03624D]/5"
+          >
+            Reassign location
+            <MapPinned size={18} strokeWidth={1.9} />
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              navigate(agent.agentId ? `/agents/${encodeURIComponent(agent.agentId)}/edit` : `${back}/edit`)
+            }
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#03624D] px-4 py-2.5 font-sans text-sm font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition hover:brightness-105 active:scale-[0.99]"
+          >
+            Edit Details
+            <Pencil size={18} strokeWidth={1.9} />
+          </button>
+        </div>
+      </div>
+
+      <div className="w-[170px]">
+        <div className="h-[148px] w-full overflow-hidden rounded-2xl bg-[#e8eef5] ring-1 ring-[#e4e4e4]">
+          {agent.photoUrl ? (
+            <img src={agent.photoUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-brand-text-muted">
+              <UserRound size={64} strokeWidth={1.2} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <InfoCard title="Personal information">
+          <DetailField label="Full Name" value={agent.fullName} />
+          <DetailField label="Phone number" value={agent.phone} />
+          <DetailField label="Email" value={agent.email} />
+          <DetailField label="Registration date" value={agent.registrationDate} />
+          <DetailField label="Gender" value={agent.gender} />
+          <DetailField
+            label="Status"
+            value={
+              <span className="inline-flex items-center rounded-md bg-[#e7f8f2] px-2 py-[1px] font-sans text-xs font-semibold text-[#158f65]">
+                {agent.status}
+              </span>
+            }
+          />
+        </InfoCard>
+        <InfoCard title="Assigned Location">
+          <DetailField label="State" value={agent.state} />
+          <DetailField label="Local Government" value={agent.lga} />
+        </InfoCard>
+        <InfoCard title="Performance">
+          <DetailField label="Total farmers registered" value={agent.totalFarmersRegistered} />
+          <DetailField label="Last sync" value={agent.lastSync} />
+          <DetailField label="Last active" value={agent.lastActive} />
+        </InfoCard>
+      </div>
+    </div>
+  );
+}
