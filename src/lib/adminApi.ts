@@ -759,9 +759,19 @@ export type AdminFarmerDetailData = {
     inputSupplier: string;
   };
   enrollingAgent: {
+    agentId: string;
     fullName: string;
+    phone: string;
+    email: string;
+    registrationDate: string;
+    gender: string;
+    status: string;
     state: string;
     lga: string;
+    photoUrl: string | null;
+    totalFarmersRegistered: string;
+    lastSync: string;
+    lastActive: string;
   };
   biometric: { fingerprint: string; face: string };
   idCard: {
@@ -780,6 +790,11 @@ export async function getFarmerDetail(farmerId: string): Promise<AdminFarmerDeta
   const payload = await sessionFetch(`/farmers/${encodeURIComponent(farmerId)}`);
   const row = findObject(payload, ["data", "farmer", "item", "record"]) as Record<string, unknown>;
   const primaryCrops = Array.isArray(row.primary_crops) ? (row.primary_crops as string[]) : [];
+  const enrollingAgentId = readString(row.enrolled_by_agent_id, row.agent_id, row.enrolling_agent_id);
+  const enrolledAgentDetail = enrollingAgentId
+    ? await getAdminAgentDetail(enrollingAgentId).catch(() => null)
+    : null;
+
   return {
     farmerId: readString(row.farmer_id, row.id, farmerId),
     personal: {
@@ -810,9 +825,20 @@ export async function getFarmerDetail(farmerId: string): Promise<AdminFarmerDeta
       inputSupplier: readString(row.input_supplier) || "-",
     },
     enrollingAgent: {
-      fullName: readString(row.agent_name, row.enrolling_agent_name) || "Unavailable",
-      state: readString(row.agent_state, row.state_of_origin) || "-",
-      lga: readString(row.agent_lga, row.lga) || "-",
+      agentId: enrolledAgentDetail?.agentId || enrollingAgentId,
+      fullName:
+        readString(enrolledAgentDetail?.name, row.agent_name, row.enrolling_agent_name) || "Unavailable",
+      phone: readString(enrolledAgentDetail?.phone) || "-",
+      email: readString(enrolledAgentDetail?.email) || "-",
+      registrationDate: readString(enrolledAgentDetail?.registrationDate) || "-",
+      gender: readString(enrolledAgentDetail?.gender) || "-",
+      status: readString(enrolledAgentDetail?.status) || "Pending",
+      state: readString(enrolledAgentDetail?.state, row.agent_state, row.state_of_origin) || "-",
+      lga: readString(enrolledAgentDetail?.lga, row.agent_lga, row.lga) || "-",
+      photoUrl: enrolledAgentDetail?.avatarUrl || null,
+      totalFarmersRegistered: readString(enrolledAgentDetail?.farmersOnboarded) || "-",
+      lastSync: readString(enrolledAgentDetail?.lastSync) || "-",
+      lastActive: readString(enrolledAgentDetail?.lastActive) || "-",
     },
     biometric: {
       fingerprint: readString(row.fingerprint_status) || "Unavailable",
@@ -822,10 +848,11 @@ export async function getFarmerDetail(farmerId: string): Promise<AdminFarmerDeta
       fullName: readString(row.full_name, row.name) || "Farmer",
       farmerId: readString(row.farmer_id, row.id, farmerId),
       cooperativeName: readString(row.cooperative_name) || "-",
-      agentName: readString(row.agent_name, row.enrolling_agent_name) || "-",
+      agentName:
+        readString(enrolledAgentDetail?.name, row.agent_name, row.enrolling_agent_name) || "-",
       issueDate: readString(row.issue_date) || "-",
       expiryDate: readString(row.expiry_date) || "-",
-      photoUrl: readString(row.profile_photo_url, row.profile_photo) || null,
+      photoUrl: readString(row.profile_photo_url, row.photo_url, row.profile_photo, row.photo) || null,
     },
     raw: row,
   };

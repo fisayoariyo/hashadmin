@@ -4,8 +4,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CircleX, MapPinned, Pencil, UserRound } from "lucide-react";
 import {
   getFarmerDetail,
-  listAdminAgents,
-  type AdminAgentListRow,
   type AdminFarmerDetailData,
 } from "@/lib/adminApi";
 
@@ -34,23 +32,20 @@ export default function AdminFarmerEnrollingAgentPage() {
   const navigate = useNavigate();
   const id = decodeURIComponent(farmerId);
   const [detail, setDetail] = useState<AdminFarmerDetailData | null>(null);
-  const [agents, setAgents] = useState<AdminAgentListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const back = `/farmers/${encodeURIComponent(id)}`;
 
   useEffect(() => {
     let active = true;
-    Promise.all([getFarmerDetail(id), listAdminAgents()])
-      .then(([farmerDetail, agentRows]) => {
+    getFarmerDetail(id)
+      .then((farmerDetail) => {
         if (!active) return;
         setDetail(farmerDetail);
-        setAgents(agentRows);
       })
       .catch((fetchError) => {
         if (active) {
           setDetail(null);
-          setAgents([]);
           setError(fetchError instanceof Error ? fetchError.message : "Could not load enrolling agent.");
         }
       })
@@ -64,26 +59,22 @@ export default function AdminFarmerEnrollingAgentPage() {
 
   const agent = useMemo(() => {
     if (!detail) return null;
-    const agentName = (detail.enrollingAgent.fullName || "").trim();
-    const matched = agents.find(
-      (row) => agentName && row.name.trim().toLowerCase() === agentName.toLowerCase(),
-    );
     return {
-      fullName: agentName || "Unavailable",
-      phone: matched?.phone || "-",
-      email: "-",
-      registrationDate: matched?.regDate || "-",
-      gender: "-",
-      status: matched?.status || "Pending",
-      state: detail.enrollingAgent.state || matched?.state || "-",
-      lga: detail.enrollingAgent.lga || matched?.lga || "-",
-      totalFarmersRegistered: "-",
-      lastSync: "-",
-      lastActive: "-",
-      photoUrl: null as string | null,
-      agentId: matched?.agentId || "",
+      fullName: detail.enrollingAgent.fullName || "Unavailable",
+      phone: detail.enrollingAgent.phone || "-",
+      email: detail.enrollingAgent.email || "-",
+      registrationDate: detail.enrollingAgent.registrationDate || "-",
+      gender: detail.enrollingAgent.gender || "-",
+      status: detail.enrollingAgent.status || "Pending",
+      state: detail.enrollingAgent.state || "-",
+      lga: detail.enrollingAgent.lga || "-",
+      totalFarmersRegistered: detail.enrollingAgent.totalFarmersRegistered || "-",
+      lastSync: detail.enrollingAgent.lastSync || "-",
+      lastActive: detail.enrollingAgent.lastActive || "-",
+      photoUrl: detail.enrollingAgent.photoUrl,
+      agentId: detail.enrollingAgent.agentId || "",
     };
-  }, [detail, agents]);
+  }, [detail]);
 
   if (loading) {
     return (
