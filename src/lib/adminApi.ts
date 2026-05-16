@@ -790,6 +790,22 @@ export async function getFarmerDetail(farmerId: string): Promise<AdminFarmerDeta
   const payload = await sessionFetch(`/farmers/${encodeURIComponent(farmerId)}`);
   const row = findObject(payload, ["data", "farmer", "item", "record"]) as Record<string, unknown>;
   const primaryCrops = Array.isArray(row.primary_crops) ? (row.primary_crops as string[]) : [];
+  const biometrics = asNestedRecord(row.biometrics);
+  const fingerprintItems = Array.isArray(biometrics?.fingerprints) ? (biometrics.fingerprints as unknown[]) : [];
+  const hasCapturedFingerprint = fingerprintItems.some((entry) => {
+    const fingerprint = asNestedRecord(entry);
+    return Boolean(readString(fingerprint?.template, fingerprint?.finger, fingerprint?.id, fingerprint?.farmer_id));
+  });
+  const hasCapturedFace = Boolean(
+    readString(
+      biometrics?.face_photo,
+      row.profile_photo_url,
+      row.photo_url,
+      row.profile_photo,
+      row.photo,
+      row.face_photo,
+    ),
+  );
   const enrollingAgentId = readString(row.enrolled_by_agent_id, row.agent_id, row.enrolling_agent_id);
   const enrolledAgentDetail = enrollingAgentId
     ? await getAdminAgentDetail(enrollingAgentId).catch(() => null)
@@ -841,8 +857,8 @@ export async function getFarmerDetail(farmerId: string): Promise<AdminFarmerDeta
       lastActive: readString(enrolledAgentDetail?.lastActive) || "-",
     },
     biometric: {
-      fingerprint: readString(row.fingerprint_status) || "Unavailable",
-      face: readString(row.face_status, row.biometric_status) || "Unavailable",
+      fingerprint: readString(row.fingerprint_status) || (hasCapturedFingerprint ? "Captured" : "Unavailable"),
+      face: readString(row.face_status, row.biometric_status) || (hasCapturedFace ? "Captured" : "Unavailable"),
     },
     idCard: {
       fullName: readString(row.full_name, row.name) || "Farmer",
