@@ -9,6 +9,9 @@ import { clearAdminSession } from "@/lib/adminSession";
 
 type Step = "login" | "reset-otp" | "reset-password";
 
+const OTP_LENGTH = 6;
+const emptyOtpDigits = () => Array.from({ length: OTP_LENGTH }, () => "");
+
 export default function AdminLoginPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -20,17 +23,12 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const resetEmail = email.trim();
-  const [digits, setDigits] = useState(["", "", "", ""]);
+  const [digits, setDigits] = useState(emptyOtpDigits);
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
   const [showPw1, setShowPw1] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
-  const otpRefs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ];
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     if (searchParams.get("logout") !== "1") return;
@@ -39,6 +37,18 @@ export default function AdminLoginPage() {
       setSearchParams({}, { replace: true });
     })();
   }, [searchParams, setSearchParams]);
+
+  const handleForgotPassword = () => {
+    setError("");
+    if (!email.trim()) {
+      setError("Enter your email to reset your password.");
+      return;
+    }
+    setDigits(emptyOtpDigits());
+    setPw1("");
+    setPw2("");
+    setStep("reset-otp");
+  };
 
   const handleLogin = async () => {
     setError("");
@@ -58,8 +68,8 @@ export default function AdminLoginPage() {
   };
 
   const handleOtpContinue = async () => {
-    if (digits.join("").length < 4) {
-      setError("Enter the 4-digit code.");
+    if (digits.join("").length < OTP_LENGTH) {
+      setError(`Enter the ${OTP_LENGTH}-digit code.`);
       return;
     }
     setError("");
@@ -86,7 +96,7 @@ export default function AdminLoginPage() {
   const dismissSuccessModal = () => {
     setShowResetSuccessModal(false);
     setStep("login");
-    setDigits(["", "", "", ""]);
+    setDigits(emptyOtpDigits());
     setPw1("");
     setPw2("");
     setError("");
@@ -160,6 +170,15 @@ export default function AdminLoginPage() {
                 </div>
               </div>
 
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="font-sans text-sm font-semibold text-[#03624D] hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
 
             {error ? (
@@ -189,7 +208,7 @@ export default function AdminLoginPage() {
               Reset password
             </h1>
             <p className="mb-12 text-center font-sans text-lg leading-relaxed text-brand-text-secondary">
-              Enter the 4-digit code we sent to your registered email
+              Enter the 6-digit code we sent to your registered email
               {resetEmail ? (
                 <>
                   <br />
@@ -197,11 +216,13 @@ export default function AdminLoginPage() {
                 </>
               ) : null}
             </p>
-            <div className="flex justify-center gap-4">
+            <div className="grid grid-cols-6 justify-center gap-3">
               {digits.map((d, i) => (
                 <input
                   key={i}
-                  ref={otpRefs[i]}
+                  ref={(el) => {
+                    otpRefs.current[i] = el;
+                  }}
                   inputMode="numeric"
                   maxLength={1}
                   value={d}
@@ -211,14 +232,14 @@ export default function AdminLoginPage() {
                     next[i] = v;
                     setDigits(next);
                     setError("");
-                    if (v && i < 3) otpRefs[i + 1].current?.focus();
+                    if (v && i < OTP_LENGTH - 1) otpRefs.current[i + 1]?.focus();
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Backspace" && !digits[i] && i > 0) {
-                      otpRefs[i - 1].current?.focus();
+                      otpRefs.current[i - 1]?.focus();
                     }
                   }}
-                  className="h-14 w-14 rounded-xl border border-brand-border text-center font-display text-xl text-brand-text-primary focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#03624D]"
+                  className="h-14 w-full max-w-14 rounded-xl border border-brand-border text-center font-display text-xl text-brand-text-primary focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#03624D]"
                 />
               ))}
             </div>
@@ -229,7 +250,7 @@ export default function AdminLoginPage() {
               </button>
             </p>
             <p className="mt-3 text-center font-sans text-xs text-brand-text-muted">
-              Enter the 4-digit code sent to your email.
+              Enter the 6-digit code sent to your email.
             </p>
             {error ? (
               <p className="mt-8 text-center text-xs text-red-500">{error}</p>
