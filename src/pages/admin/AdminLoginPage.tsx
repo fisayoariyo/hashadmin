@@ -23,6 +23,7 @@ export default function AdminLoginPage() {
   const [step, setStep] = useState<Step>("login");
   const [showResetSuccessModal, setShowResetSuccessModal] = useState(false);
   const [email, setEmail] = useState("");
+  const [resetAccessToken, setResetAccessToken] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,7 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       await requestAdminPasswordResetOtp(email.trim());
+      setResetAccessToken("");
       setDigits(emptyOtpDigits());
       setPw1("");
       setPw2("");
@@ -88,10 +90,15 @@ export default function AdminLoginPage() {
     setError("");
     setLoading(true);
     try {
-      await verifyAdminPasswordResetOtp({
+      const verification = await verifyAdminPasswordResetOtp({
         email: email.trim(),
         otp: digits.join(""),
       });
+      if (!verification.accessToken) {
+        setError("Verification succeeded but no reset token was returned.");
+        return;
+      }
+      setResetAccessToken(verification.accessToken);
       setPw1("");
       setPw2("");
       setStep("reset-password");
@@ -107,11 +114,17 @@ export default function AdminLoginPage() {
       setError("Passwords must match.");
       return;
     }
+    if (!resetAccessToken) {
+      setError("Verification token missing. Please verify your code again.");
+      setStep("reset-otp");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
       await submitAdminPasswordReset({
         newPassword: pw1,
+        token: resetAccessToken,
       });
       setShowResetSuccessModal(true);
     } catch (requestError) {
@@ -124,6 +137,7 @@ export default function AdminLoginPage() {
   const dismissSuccessModal = () => {
     setShowResetSuccessModal(false);
     setStep("login");
+    setResetAccessToken("");
     setDigits(emptyOtpDigits());
     setPw1("");
     setPw2("");
@@ -312,6 +326,7 @@ export default function AdminLoginPage() {
                   type="button"
                   onClick={() => {
                     setStep("login");
+                    setResetAccessToken("");
                     setError("");
                   }}
                   className="btn-admin-back mx-auto block"
@@ -395,6 +410,7 @@ export default function AdminLoginPage() {
                   type="button"
                   onClick={() => {
                     setStep("reset-otp");
+                    setResetAccessToken("");
                     setError("");
                   }}
                   className="btn-admin-back mx-auto block"
