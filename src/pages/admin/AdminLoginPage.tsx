@@ -4,7 +4,12 @@ import { Check, Eye, EyeOff, Lock, Mail } from "lucide-react";
 /** Left-panel hero image (`src/assets/admin-auth/login-hero.png`). */
 import heroImage from "@/assets/admin-auth/login-hero.png";
 import cardPattern from "@/assets/comps/card-pattern-desktop.svg";
-import { loginAdmin } from "@/lib/adminApi";
+import {
+  loginAdmin,
+  requestAdminPasswordResetOtp,
+  submitAdminPasswordReset,
+  verifyAdminPasswordResetOtp,
+} from "@/lib/adminApi";
 import { clearAdminSession } from "@/lib/adminSession";
 
 type Step = "login" | "reset-otp" | "reset-password";
@@ -38,16 +43,24 @@ export default function AdminLoginPage() {
     })();
   }, [searchParams, setSearchParams]);
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     setError("");
     if (!email.trim()) {
       setError("Enter your email to reset your password.");
       return;
     }
-    setDigits(emptyOtpDigits());
-    setPw1("");
-    setPw2("");
-    setStep("reset-otp");
+    setLoading(true);
+    try {
+      await requestAdminPasswordResetOtp(email.trim());
+      setDigits(emptyOtpDigits());
+      setPw1("");
+      setPw2("");
+      setStep("reset-otp");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not send code.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogin = async () => {
@@ -74,11 +87,19 @@ export default function AdminLoginPage() {
     }
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 350));
-    setLoading(false);
-    setPw1("");
-    setPw2("");
-    setStep("reset-password");
+    try {
+      await verifyAdminPasswordResetOtp({
+        email: email.trim(),
+        otp: digits.join(""),
+      });
+      setPw1("");
+      setPw2("");
+      setStep("reset-password");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not verify code.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePasswordReset = async () => {
@@ -88,9 +109,16 @@ export default function AdminLoginPage() {
     }
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-    setLoading(false);
-    setShowResetSuccessModal(true);
+    try {
+      await submitAdminPasswordReset({
+        newPassword: pw1,
+      });
+      setShowResetSuccessModal(true);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not reset password.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const dismissSuccessModal = () => {
@@ -245,8 +273,23 @@ export default function AdminLoginPage() {
             </div>
             <p className="mt-10 text-center font-sans text-sm text-brand-text-secondary">
               I did not receive a code,{" "}
-              <button type="button" className="font-semibold text-[#03624D] hover:underline">
-                Resend Code
+              <button
+                type="button"
+                disabled={loading}
+                onClick={async () => {
+                  setError("");
+                  setLoading(true);
+                  try {
+                    await requestAdminPasswordResetOtp(email.trim());
+                  } catch (requestError) {
+                    setError(requestError instanceof Error ? requestError.message : "Could not resend code.");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="font-semibold text-[#03624D] hover:underline disabled:opacity-50"
+              >
+                {loading ? "Resending..." : "Resend Code"}
               </button>
             </p>
             <p className="mt-3 text-center font-sans text-xs text-brand-text-muted">

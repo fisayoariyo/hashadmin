@@ -389,6 +389,37 @@ export async function loginAdmin(email: string, password: string) {
   return response;
 }
 
+/** Admin login-flow reset: request OTP by email. */
+export async function requestAdminPasswordResetOtp(email: string) {
+  return apiFetch("/auth/reset-password", {
+    method: "POST",
+    body: { email: String(email || "").trim() },
+  });
+}
+
+/** Admin login-flow reset: verify OTP by email. */
+export async function verifyAdminPasswordResetOtp(input: { email: string; otp: string }) {
+  return apiFetch("/auth/verify", {
+    method: "POST",
+    body: {
+      email: String(input.email || "").trim(),
+      otp: String(input.otp || "").trim(),
+    },
+  });
+}
+
+/** Admin login-flow reset: set new password after OTP verify. */
+export async function submitAdminPasswordReset(input: {
+  newPassword: string;
+}) {
+  return apiFetch("/auth/change-password", {
+    method: "POST",
+    body: {
+      new_password: String(input.newPassword || ""),
+    },
+  });
+}
+
 export async function registerAdmin(input: {
   fullName: string;
   email: string;
