@@ -19,13 +19,16 @@ function matchesSearch(row: PendingAgentRow, q: string) {
 type PendingAgentsPanelProps = {
   title: string;
   description?: string;
+  fetchRows?: () => Promise<PendingAgentRow[]>;
 };
 
-export default function PendingAgentsPanel({ title, description }: PendingAgentsPanelProps) {
+export default function PendingAgentsPanel({ title, description, fetchRows }: PendingAgentsPanelProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [searchApplied, setSearchApplied] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortOption, setSortOption] = useState<"name" | "state" | "registration">("registration");
   const [menuId, setMenuId] = useState<string | null>(null);
   const [rows, setRows] = useState<PendingAgentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +47,8 @@ export default function PendingAgentsPanel({ title, description }: PendingAgents
     let active = true;
     setLoading(true);
     setError("");
-    listPendingAgents()
+    const loadRows = fetchRows ?? listPendingAgents;
+    loadRows()
       .then((payload) => {
         if (active) setRows(payload);
       })
@@ -60,11 +64,15 @@ export default function PendingAgentsPanel({ title, description }: PendingAgents
     return () => {
       active = false;
     };
-  }, []);
+  }, [fetchRows]);
 
   const stateOptions = useMemo(
     () => ["all", ...Array.from(new Set(rows.map((row) => row.state).filter((state) => state && state !== "-")))],
     [rows],
+  );
+  const statusOptions = useMemo(
+    () => ["all", "pending", "verified"],
+    [],
   );
 
   const filteredRows = useMemo(
@@ -72,10 +80,28 @@ export default function PendingAgentsPanel({ title, description }: PendingAgents
       rows.filter((row) => {
         if (!matchesSearch(row, searchApplied)) return false;
         if (stateFilter !== "all" && row.state !== stateFilter) return false;
+        if (statusFilter !== "all" && row.status !== statusFilter) return false;
         return true;
       }),
-    [rows, searchApplied, stateFilter],
+    [rows, searchApplied, stateFilter, statusFilter],
   );
+
+  const sortedRows = useMemo(() => {
+    return [...filteredRows].sort((a, b) => {
+      if (sortOption === "name") {
+        return a.name.localeCompare(b.name);
+      }
+      if (sortOption === "state") {
+        return a.state.localeCompare(b.state);
+      }
+      if (sortOption === "registration") {
+        const timeA = Date.parse(a.registrationTimestamp) || 0;
+        const timeB = Date.parse(b.registrationTimestamp) || 0;
+        return timeA - timeB;
+      }
+      return 0;
+    });
+  }, [filteredRows, sortOption]);
 
   return (
     <div className="w-full space-y-5 pb-4">
@@ -115,30 +141,65 @@ export default function PendingAgentsPanel({ title, description }: PendingAgents
         </button>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <span className="inline-flex items-center gap-1.5 font-sans text-sm font-medium text-brand-text-secondary">
           <Filter size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
           Filter
         </span>
-        <div className="relative">
+        <div className="flex flex-wrap gap-2">
+          <div className="relative">
+            <select
+              value={stateFilter}
+              onChange={(event) => setStateFilter(event.target.value)}
+              className={selectClass}
+              aria-label="State"
+            >
+              {stateOptions.map((stateOption) => (
+                <option key={stateOption} value={stateOption}>
+                  {stateOption === "all" ? "State" : stateOption}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={14}
+              strokeWidth={1.8}
+              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
+              aria-hidden
+            />
+          </div>
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className={selectClass}
+              aria-label="Status"
+            >
+              {statusOptions.map((statusOption) => (
+                <option key={statusOption} value={statusOption}>
+                  {statusOption === "all" ? "Status" : statusOption}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={14}
+              strokeWidth={1.8}
+              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
+              aria-hidden
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-brand-text-secondary">Sort by</span>
           <select
-            value={stateFilter}
-            onChange={(event) => setStateFilter(event.target.value)}
+            value={sortOption}
+            onChange={(event) => setSortOption(event.target.value as "name" | "state" | "registration")}
             className={selectClass}
-            aria-label="State"
+            aria-label="Sort by"
           >
-            {stateOptions.map((stateOption) => (
-              <option key={stateOption} value={stateOption}>
-                {stateOption === "all" ? "State" : stateOption}
-              </option>
-            ))}
+            <option value="registration">Registration Date</option>
+            <option value="name">Name</option>
+            <option value="state">State</option>
           </select>
-          <ChevronDown
-            size={14}
-            strokeWidth={1.8}
-            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
-            aria-hidden
-          />
         </div>
       </div>
 
@@ -152,12 +213,12 @@ export default function PendingAgentsPanel({ title, description }: PendingAgents
             <span>LGA</span>
             <span className="sr-only">Actions</span>
           </div>
-          {filteredRows.length === 0 ? (
+          {sortedRows.length === 0 ? (
             <p className="px-5 py-12 text-center font-sans text-sm text-brand-text-secondary">
               {loading ? "Loading pending agents..." : "No agents match your filters."}
             </p>
           ) : (
-            filteredRows.map((row, index) => (
+            sortedRows.map((row, index) => (
               <div
                 key={row.id}
                 className={`relative grid grid-cols-[minmax(8rem,1.2fr)_minmax(8rem,1fr)_minmax(5rem,0.65fr)_minmax(6rem,0.85fr)_minmax(6rem,0.85fr)_3rem] items-center gap-3 px-5 py-4 text-sm ${
@@ -166,8 +227,14 @@ export default function PendingAgentsPanel({ title, description }: PendingAgents
               >
                 <span className="truncate font-sans font-medium text-brand-text-primary">{row.name}</span>
                 <span className="truncate font-sans text-brand-text-secondary">{row.phone}</span>
-                <span className="inline-flex rounded-full bg-orange-50 px-3 py-1 font-sans text-xs font-semibold text-orange-700">
-                  Pending
+                <span
+                  className={`inline-flex rounded-full px-3 py-1 font-sans text-xs font-semibold ${
+                    row.status === "verified"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-orange-50 text-orange-700"
+                  }`}
+                >
+                  {row.status === "verified" ? "Verified" : "Pending"}
                 </span>
                 <span className="truncate font-sans text-brand-text-secondary">{row.state}</span>
                 <span className="truncate font-sans text-brand-text-secondary">{row.lga}</span>

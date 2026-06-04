@@ -153,6 +153,7 @@ function resolveAgentDisplayFields(source: Record<string, unknown>) {
   const profile = asNestedRecord(source.profile);
   const account = asNestedRecord(source.account);
   const agentNest = asNestedRecord(source.agent);
+  const farmer = asNestedRecord(source.farmer);
 
   const name = readString(
     source.full_name,
@@ -173,11 +174,16 @@ function resolveAgentDisplayFields(source: Record<string, unknown>) {
     profile?.full_name,
     profile?.fullName,
     profile?.name,
+    farmer?.full_name,
+    farmer?.fullName,
+    farmer?.display_name,
+    farmer?.name,
     composeFullNameFromPairs(
       [source.first_name, source.last_name],
       [agentNest?.first_name, agentNest?.last_name],
       [user?.first_name, user?.last_name],
       [profile?.first_name, profile?.last_name],
+      [farmer?.first_name, farmer?.last_name],
     ),
   );
 
@@ -196,6 +202,9 @@ function resolveAgentDisplayFields(source: Record<string, unknown>) {
     profile?.phone,
     account?.phone_number,
     account?.phone,
+    farmer?.phone_number,
+    farmer?.phone,
+    farmer?.mobile,
   );
 
   const email = readString(
@@ -204,6 +213,7 @@ function resolveAgentDisplayFields(source: Record<string, unknown>) {
     user?.email,
     profile?.email,
     account?.email,
+    farmer?.email,
   );
 
   const state = readString(
@@ -215,6 +225,8 @@ function resolveAgentDisplayFields(source: Record<string, unknown>) {
     agentNest?.state,
     user?.state,
     profile?.state,
+    farmer?.state,
+    farmer?.state_of_origin,
   );
 
   const lga = readString(
@@ -226,6 +238,9 @@ function resolveAgentDisplayFields(source: Record<string, unknown>) {
     agentNest?.lga,
     user?.lga,
     profile?.lga,
+    farmer?.lga,
+    farmer?.local_government,
+    farmer?.local_govt_area,
   );
 
   return { name, phone, email, state, lga };
@@ -498,39 +513,96 @@ export type PendingAgentRow = {
   lga: string;
   status: "pending" | "verified";
   registrationDate: string;
+  registrationTimestamp: string;
   gender: string;
 };
+
+function derivePendingStatus(raw?: string) {
+  const normalized = readString(raw).toUpperCase();
+  if (
+    ["ACTIVE", "APPROVED", "VERIFIED", "COMPLETE", "COMPLETED"].some((value) =>
+      normalized.includes(value),
+    )
+  ) {
+    return "verified";
+  }
+  return "pending";
+}
+
+function mapPendingRow(item: Record<string, unknown>) {
+  const id = readString(
+    item.agent_id,
+    item.id,
+    item.user_id,
+    item.farmer_id,
+    item.upgrade_id,
+    item.request_id,
+  );
+  if (!id) return null;
+  const fields = resolveAgentDisplayFields(item);
+  const nestedUser = asNestedRecord(item.user);
+  const nestedProfile = asNestedRecord(item.profile);
+  const nestedFarmer = asNestedRecord(item.farmer);
+  const gender = readString(
+    item.gender,
+    nestedUser?.gender,
+    nestedProfile?.gender,
+    nestedFarmer?.gender,
+  );
+  const statusRaw = readString(
+    item.status,
+    item.request_status,
+    item.upgrade_status,
+    nestedProfile?.status,
+    nestedFarmer?.status,
+  );
+  const registrationTimestamp = readString(
+    item.created_at,
+    item.registration_date,
+    item.requested_at,
+    item.requested_date,
+    item.date_created,
+  );
+  return {
+    id,
+    name: fields.name || "Agent",
+    phone: fields.phone || "-",
+    email: fields.email || "-",
+    state: fields.state || "-",
+    lga: fields.lga || "-",
+    status: derivePendingStatus(statusRaw),
+    registrationDate: formatDate(registrationTimestamp),
+    registrationTimestamp,
+    gender: gender || "-",
+  };
+}
 
 export async function listPendingAgents(): Promise<PendingAgentRow[]> {
   const payload = await sessionFetch("/admin/pending-agents");
   return findArray(payload, ["data", "agents", "items", "results", "records", "rows"])
     .map((row) => {
       if (!row || typeof row !== "object") return null;
-      const item = row as Record<string, unknown>;
-      // Approval endpoint expects the backend agent identifier.
-      const id = readString(item.agent_id, item.id, item.user_id);
-      if (!id) return null;
-      const fields = resolveAgentDisplayFields(item);
-      const nestedUser = asNestedRecord(item.user);
-      const nestedProfile = asNestedRecord(item.profile);
-      const gender = readString(
-        item.gender,
-        nestedUser?.gender,
-        nestedProfile?.gender,
-      );
-      return {
-        id,
-        name: fields.name || "Agent",
-        phone: fields.phone || "-",
-        email: fields.email || "-",
-        state: fields.state || "-",
-        lga: fields.lga || "-",
-        status: ["ACTIVE", "APPROVED", "VERIFIED"].includes(readString(item.status).toUpperCase())
-          ? "verified"
-          : "pending",
-        registrationDate: formatDate(readString(item.created_at, item.registration_date)),
-        gender: gender || "-",
-      };
+      return mapPendingRow(row as Record<string, unknown>);
+    })
+    .filter(Boolean) as PendingAgentRow[];
+}
+
+export async function listFarmerUpgradeRequests(): Promise<PendingAgentRow[]> {
+  const payload = await sessionFetch("/admin/upgrades/farmers-to-agents");
+  return findArray(payload, [
+    "data",
+    "agents",
+    "items",
+    "results",
+    "records",
+    "rows",
+    "requests",
+    "farmers",
+    "upgrades",
+  ])
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      return mapPendingRow(row as Record<string, unknown>);
     })
     .filter(Boolean) as PendingAgentRow[];
 }
