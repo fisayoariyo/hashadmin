@@ -8,6 +8,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ClipboardCheck,
+  ClipboardList,
   Home,
   LogOut,
   MoreHorizontal,
@@ -43,6 +44,12 @@ export const ADMIN_NAV_LINKS = [
     label: "Agent Verification",
     path: "/agent-verification",
     kind: "clipboard" as const,
+  },
+  {
+    key: "agent-requests",
+    label: "Agent Requests",
+    path: "/agent-requests",
+    kind: "clipboard-list" as const,
   },
   {
     key: "reported-issues",
@@ -146,6 +153,12 @@ export default function AdminDesktopShell({
                       />
                     ) : kind === "clipboard" ? (
                       <ClipboardCheck
+                        size={20}
+                        strokeWidth={isActive ? 2.1 : 1.9}
+                        className={isActive ? "text-white" : "text-[#030F0F]"}
+                      />
+                    ) : kind === "clipboard-list" ? (
+                      <ClipboardList
                         size={20}
                         strokeWidth={isActive ? 2.1 : 1.9}
                         className={isActive ? "text-white" : "text-[#030F0F]"}

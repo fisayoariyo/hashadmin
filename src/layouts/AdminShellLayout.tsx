@@ -8,6 +8,7 @@ function activeNavFromPath(pathname: string): AdminShellNavKey {
   if (pathname.startsWith("/farmers")) return "farmers";
   if (pathname.startsWith("/agents")) return "agents";
   if (pathname.startsWith("/agent-verification")) return "agent-verification";
+  if (pathname.startsWith("/agent-requests")) return "agent-requests";
   if (pathname.startsWith("/reported-issues")) return "reported-issues";
   return "dashboard";
 }

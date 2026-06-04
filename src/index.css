@@ -63,8 +63,9 @@
 @layer components {
   /* Mirrored from `hashmar-farmer-app/src/index.css` — admin login / CTAs */
   .btn-admin-primary {
-    @apply w-full max-w-[440px] rounded-full bg-[#03624D] py-4 text-center font-display text-base font-semibold text-white shadow-[0_6px_14px_rgba(3,98,77,0.18)] transition-all duration-200
+    @apply mx-auto block w-full max-w-[320px] rounded-[18px] bg-[#03624D] px-10 py-3 text-center font-display text-base font-semibold text-white transition-all duration-200
       active:scale-[0.99] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-50;
+    box-shadow: 0 18px 25px rgba(0, 0, 0, 0.12);
   }
   /* Reset-password flow — Figma uses a softer corner radius on Continue */
   .btn-admin-continue {

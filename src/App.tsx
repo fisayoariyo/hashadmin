@@ -9,6 +9,7 @@ import AdminAgentEnrolledFarmersPage from "@/pages/admin/AdminAgentEnrolledFarme
 import AdminAgentReassignLocationPage from "@/pages/admin/AdminAgentReassignLocationPage";
 import AdminAgentVerificationDetailPage from "@/pages/admin/AdminAgentVerificationDetailPage";
 import AdminAgentVerificationPage from "@/pages/admin/AdminAgentVerificationPage";
+import AdminAgentRequestsPage from "@/pages/admin/AdminAgentRequestsPage";
 import AdminAgentsPage from "@/pages/admin/AdminAgentsPage";
 import AdminCreateAdminPage from "@/pages/admin/AdminCreateAdminPage";
 import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
@@ -59,6 +60,7 @@ export default function App() {
               element={<AdminAgentVerificationDetailPage />}
             />
             <Route path="/agent-verification" element={<AdminAgentVerificationPage />} />
+            <Route path="/agent-requests" element={<AdminAgentRequestsPage />} />
             <Route path="/reported-issues" element={<AdminReportedIssuesPage />} />
             <Route
               path="/reported-issues/:issueId"
