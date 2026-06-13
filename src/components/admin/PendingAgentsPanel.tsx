@@ -3,17 +3,13 @@ import { ChevronDown, Filter, MoreVertical, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { listPendingAgents, type PendingAgentRow } from "@/lib/adminApi";
 
-const selectClass =
-  "h-9 min-w-[120px] cursor-pointer appearance-none rounded-lg border border-transparent bg-transparent py-2 pl-2 pr-8 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-white/70 focus:border-[#e4e4e4] focus:bg-white sm:min-w-[132px]";
+const filterPillClass =
+  "h-9 min-w-[112px] cursor-pointer appearance-none rounded-full border border-[#e4e4e4] bg-[#F3F3F3] py-2 pl-4 pr-9 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-[#ececec] focus:border-[#d4d4d4] focus:bg-white sm:min-w-[124px]";
 
 function matchesSearch(row: PendingAgentRow, q: string) {
   if (!q.trim()) return true;
   const search = q.trim().toLowerCase();
-  return (
-    row.name.toLowerCase().includes(search) ||
-    row.phone.toLowerCase().includes(search) ||
-    row.email.toLowerCase().includes(search)
-  );
+  return row.name.toLowerCase().includes(search);
 }
 
 type PendingAgentsPanelProps = {
@@ -22,17 +18,19 @@ type PendingAgentsPanelProps = {
   fetchRows?: () => Promise<PendingAgentRow[]>;
 };
 
+type SortOption = "default" | "registration" | "name" | "state";
+
 export default function PendingAgentsPanel({ title, description, fetchRows }: PendingAgentsPanelProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [searchApplied, setSearchApplied] = useState("");
-  const [stateFilter, setStateFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortOption, setSortOption] = useState<"name" | "state" | "registration">("registration");
+  const [statusFilter, setStatusFilter] = useState<"all" | PendingAgentRow["status"]>("all");
+  const [sortOption, setSortOption] = useState<SortOption>("default");
   const [menuId, setMenuId] = useState<string | null>(null);
   const [rows, setRows] = useState<PendingAgentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [loadMoreSteps, setLoadMoreSteps] = useState(0);
   const tableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,42 +64,34 @@ export default function PendingAgentsPanel({ title, description, fetchRows }: Pe
     };
   }, [fetchRows]);
 
-  const stateOptions = useMemo(
-    () => ["all", ...Array.from(new Set(rows.map((row) => row.state).filter((state) => state && state !== "-")))],
-    [rows],
-  );
-  const statusOptions = useMemo(
-    () => ["all", "pending", "verified"],
-    [],
-  );
-
   const filteredRows = useMemo(
     () =>
       rows.filter((row) => {
         if (!matchesSearch(row, searchApplied)) return false;
-        if (stateFilter !== "all" && row.state !== stateFilter) return false;
         if (statusFilter !== "all" && row.status !== statusFilter) return false;
         return true;
       }),
-    [rows, searchApplied, stateFilter, statusFilter],
+    [rows, searchApplied, statusFilter],
   );
 
   const sortedRows = useMemo(() => {
+    if (sortOption === "default") return filteredRows;
     return [...filteredRows].sort((a, b) => {
-      if (sortOption === "name") {
-        return a.name.localeCompare(b.name);
-      }
-      if (sortOption === "state") {
-        return a.state.localeCompare(b.state);
-      }
-      if (sortOption === "registration") {
-        const timeA = Date.parse(a.registrationTimestamp) || 0;
-        const timeB = Date.parse(b.registrationTimestamp) || 0;
-        return timeA - timeB;
-      }
-      return 0;
+      if (sortOption === "name") return a.name.localeCompare(b.name);
+      if (sortOption === "state") return a.state.localeCompare(b.state);
+      const timeA = Date.parse(a.registrationTimestamp) || 0;
+      const timeB = Date.parse(b.registrationTimestamp) || 0;
+      return timeA - timeB;
     });
   }, [filteredRows, sortOption]);
+
+  const visibleCount = 8 + loadMoreSteps * 4;
+  const visibleRows = sortedRows.slice(0, visibleCount);
+  const canLoadMore = visibleRows.length < sortedRows.length;
+
+  useEffect(() => {
+    setLoadMoreSteps(0);
+  }, [searchApplied, statusFilter, sortOption]);
 
   return (
     <div className="w-full space-y-5 pb-4">
@@ -128,7 +118,7 @@ export default function PendingAgentsPanel({ title, description, fetchRows }: Pe
             onKeyDown={(event) => {
               if (event.key === "Enter") setSearchApplied(query);
             }}
-            placeholder="Search pending agent by name, email or phone"
+            placeholder="Search agent by name"
             className="min-w-0 flex-1 border-0 bg-transparent font-sans text-sm text-brand-text-primary outline-none placeholder:text-brand-text-muted"
           />
         </div>
@@ -141,65 +131,47 @@ export default function PendingAgentsPanel({ title, description, fetchRows }: Pe
         </button>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <span className="inline-flex items-center gap-1.5 font-sans text-sm font-medium text-brand-text-secondary">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 inline-flex items-center gap-1.5 font-sans text-sm font-medium text-brand-text-secondary">
           <Filter size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
           Filter
         </span>
-        <div className="flex flex-wrap gap-2">
-          <div className="relative">
-            <select
-              value={stateFilter}
-              onChange={(event) => setStateFilter(event.target.value)}
-              className={selectClass}
-              aria-label="State"
-            >
-              {stateOptions.map((stateOption) => (
-                <option key={stateOption} value={stateOption}>
-                  {stateOption === "all" ? "State" : stateOption}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              strokeWidth={1.8}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
-              aria-hidden
-            />
-          </div>
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className={selectClass}
-              aria-label="Status"
-            >
-              {statusOptions.map((statusOption) => (
-                <option key={statusOption} value={statusOption}>
-                  {statusOption === "all" ? "Status" : statusOption}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              strokeWidth={1.8}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
-              aria-hidden
-            />
-          </div>
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+            className={filterPillClass}
+            aria-label="Status"
+          >
+            <option value="all">Status</option>
+            <option value="pending">Pending</option>
+            <option value="verified">Verified</option>
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-brand-text-secondary">Sort by</span>
+        <div className="relative">
           <select
             value={sortOption}
-            onChange={(event) => setSortOption(event.target.value as "name" | "state" | "registration")}
-            className={selectClass}
+            onChange={(event) => setSortOption(event.target.value as SortOption)}
+            className={filterPillClass}
             aria-label="Sort by"
           >
+            <option value="default">Sort by</option>
             <option value="registration">Registration Date</option>
             <option value="name">Name</option>
             <option value="state">State</option>
           </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
         </div>
       </div>
 
@@ -213,12 +185,12 @@ export default function PendingAgentsPanel({ title, description, fetchRows }: Pe
             <span>LGA</span>
             <span className="sr-only">Actions</span>
           </div>
-          {sortedRows.length === 0 ? (
+          {visibleRows.length === 0 ? (
             <p className="px-5 py-12 text-center font-sans text-sm text-brand-text-secondary">
               {loading ? "Loading pending agents..." : "No agents match your filters."}
             </p>
           ) : (
-            sortedRows.map((row, index) => (
+            visibleRows.map((row, index) => (
               <div
                 key={row.id}
                 className={`relative grid grid-cols-[minmax(8rem,1.2fr)_minmax(8rem,1fr)_minmax(5rem,0.65fr)_minmax(6rem,0.85fr)_minmax(6rem,0.85fr)_3rem] items-center gap-3 px-5 py-4 text-sm ${
@@ -271,6 +243,18 @@ export default function PendingAgentsPanel({ title, description, fetchRows }: Pe
           )}
         </div>
       </div>
+
+      {sortedRows.length > 0 && canLoadMore ? (
+        <div className="flex justify-center pt-1">
+          <button
+            type="button"
+            onClick={() => setLoadMoreSteps((steps) => steps + 1)}
+            className="rounded-full border border-[#e4e4e4] bg-white px-8 py-2.5 font-sans text-sm font-semibold text-[#03624D] shadow-sm transition hover:bg-[#f6faf8]"
+          >
+            Load more
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

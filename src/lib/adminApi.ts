@@ -222,11 +222,22 @@ function resolveAgentDisplayFields(source: Record<string, unknown>) {
     source.state_of_origin,
     source.assigned_state,
     source.operation_state,
+    source.operating_state,
     agentNest?.state,
+    agentNest?.state_name,
+    agentNest?.state_of_origin,
+    agentNest?.assigned_state,
+    agentNest?.operating_state,
     user?.state,
+    user?.state_name,
     profile?.state,
+    profile?.state_name,
     farmer?.state,
     farmer?.state_of_origin,
+    asNestedRecord(source.location)?.state,
+    asNestedRecord(source.onboarding)?.state,
+    asNestedRecord(source.agent_profile)?.state,
+    asNestedRecord(source.assignment)?.state,
   );
 
   const lga = readString(
@@ -235,12 +246,23 @@ function resolveAgentDisplayFields(source: Record<string, unknown>) {
     source.local_government,
     source.local_govt_area,
     source.local_goverment_area,
+    source.assigned_lga,
     agentNest?.lga,
+    agentNest?.lga_name,
+    agentNest?.local_government,
+    agentNest?.local_govt_area,
+    agentNest?.assigned_lga,
     user?.lga,
+    user?.local_govt_area,
     profile?.lga,
+    profile?.local_govt_area,
     farmer?.lga,
     farmer?.local_government,
     farmer?.local_govt_area,
+    asNestedRecord(source.location)?.lga,
+    asNestedRecord(source.onboarding)?.lga,
+    asNestedRecord(source.agent_profile)?.lga,
+    asNestedRecord(source.assignment)?.lga,
   );
 
   return { name, phone, email, state, lga };
@@ -579,12 +601,28 @@ function mapPendingRow(item: Record<string, unknown>) {
 
 export async function listPendingAgents(): Promise<PendingAgentRow[]> {
   const payload = await sessionFetch("/admin/pending-agents");
-  return findArray(payload, ["data", "agents", "items", "results", "records", "rows"])
+  const rows = findArray(payload, ["data", "agents", "items", "results", "records", "rows"])
     .map((row) => {
       if (!row || typeof row !== "object") return null;
       return mapPendingRow(row as Record<string, unknown>);
     })
     .filter(Boolean) as PendingAgentRow[];
+
+  return Promise.all(
+    rows.map(async (row) => {
+      if (row.state !== "-" && row.lga !== "-") return row;
+      try {
+        const detail = await getAdminAgentDetail(row.id);
+        return {
+          ...row,
+          state: row.state === "-" ? detail.state : row.state,
+          lga: row.lga === "-" ? detail.lga : row.lga,
+        };
+      } catch {
+        return row;
+      }
+    }),
+  );
 }
 
 export async function listFarmerUpgradeRequests(): Promise<PendingAgentRow[]> {
