@@ -1000,10 +1000,33 @@ export type AdminSupportTicketRow = {
   description: string;
   farmerId: string;
   userId: string;
+  agentName: string;
+  state: string;
   status: AdminSupportTicketStatus;
   createdAt: string;
   raw: Record<string, unknown>;
 };
+
+function mapSupportTicketFields(item: Record<string, unknown>) {
+  const agent = findObject(item, ["agent", "reporter", "user"]) as Record<string, unknown> | null;
+  return {
+    issueType: readString(item.issue_type, item.type, item.category) || "Reported issue",
+    description: readString(item.description, item.details) || "No description provided.",
+    farmerId: readString(item.farmer_id) || "-",
+    userId: readString(item.user_id, item.reporter_id) || "-",
+    agentName:
+      readString(
+        item.agent_name,
+        item.reporter_name,
+        agent?.name,
+        agent?.full_name,
+        agent?.fullName,
+      ) || "-",
+    state: readString(item.state, item.agent_state, agent?.state) || "-",
+    status: mapSupportTicketStatus(readString(item.status)),
+    createdAt: formatDate(readString(item.created_at, item.updated_at)),
+  };
+}
 
 function mapSupportTicketStatus(value: string): AdminSupportTicketStatus {
   const normalized = readString(value).toUpperCase();
@@ -1024,12 +1047,7 @@ export async function listSupportTickets(): Promise<AdminSupportTicketRow[]> {
       if (!id) return null;
       return {
         id,
-        issueType: readString(item.issue_type, item.type, item.category) || "Reported issue",
-        description: readString(item.description, item.details) || "No description provided.",
-        farmerId: readString(item.farmer_id) || "-",
-        userId: readString(item.user_id, item.reporter_id) || "-",
-        status: mapSupportTicketStatus(readString(item.status)),
-        createdAt: formatDate(readString(item.created_at, item.updated_at)),
+        ...mapSupportTicketFields(item),
         raw: item,
       };
     })
@@ -1043,12 +1061,7 @@ function mapSupportTicketRow(row: unknown): AdminSupportTicketRow | null {
   if (!id) return null;
   return {
     id,
-    issueType: readString(item.issue_type, item.type, item.category) || "Reported issue",
-    description: readString(item.description, item.details) || "No description provided.",
-    farmerId: readString(item.farmer_id) || "-",
-    userId: readString(item.user_id, item.reporter_id) || "-",
-    status: mapSupportTicketStatus(readString(item.status)),
-    createdAt: formatDate(readString(item.created_at, item.updated_at)),
+    ...mapSupportTicketFields(item),
     raw: item,
   };
 }
