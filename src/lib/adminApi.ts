@@ -134,6 +134,33 @@ function asNestedRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+function buildAgentDetailSource(row: Record<string, unknown>) {
+  const nestedAgent = asNestedRecord(row.agent);
+  const nestedUser = asNestedRecord(row.user);
+  const nestedProfile = asNestedRecord(row.profile);
+  const onboarding = asNestedRecord(row.onboarding);
+  const biometrics = asNestedRecord(row.biometrics);
+  return {
+    ...(onboarding || {}),
+    ...(nestedAgent || {}),
+    ...row,
+    user: nestedUser,
+    profile: nestedProfile,
+    agent: nestedAgent,
+    onboarding,
+    biometrics,
+  } as Record<string, unknown>;
+}
+
+function normalizeMediaUrl(url: string) {
+  const value = readString(url);
+  if (!value || value === "/avatar-placeholder.svg") return "";
+  if (value.startsWith("data:") || /^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("//")) return `https:${value}`;
+  if (value.startsWith("/")) return buildUrl(value);
+  return value;
+}
+
 /** Build "First Last" from pairs until one pair yields non-empty parts. */
 function composeFullNameFromPairs(...pairs: ReadonlyArray<readonly [unknown, unknown]>): string {
   for (const [a, b] of pairs) {
@@ -788,19 +815,21 @@ export async function listAdminAgents(params: ListAdminAgentsParams = {}): Promi
 export async function getAdminAgentDetail(agentId: string): Promise<AdminAgentDetail> {
   const payload = await sessionFetch(`/admin/agents/${encodeURIComponent(agentId)}`);
   const row = findObject(payload, ["data", "agent", "item", "record"]) as Record<string, unknown>;
-  const nestedAgent = asNestedRecord(row.agent);
-  const nestedUser = asNestedRecord(row.user);
+  const source = buildAgentDetailSource(row);
+  const nestedAgent = asNestedRecord(source.agent);
+  const nestedUser = asNestedRecord(source.user);
   const isActive = readBooleanish(
-    row.is_active,
+    source.is_active,
     nestedAgent?.is_active,
     nestedUser?.is_active,
   );
-  const status = mapAgentStatus(readString(row.status), isActive);
-  const fields = resolveAgentDisplayFields(row);
-  const nestedProfile = asNestedRecord(row.profile);
-  const gender = readString(row.gender, nestedUser?.gender, nestedProfile?.gender);
+  const status = mapAgentStatus(readString(source.status), isActive);
+  const fields = resolveAgentDisplayFields(source);
+  const nestedProfile = asNestedRecord(source.profile);
+  const gender = readString(source.gender, nestedUser?.gender, nestedProfile?.gender);
+  const avatarUrl = normalizeMediaUrl(resolveAgentAvatarUrl(source)) || "/avatar-placeholder.svg";
   return {
-    agentId: readString(row.agent_id, row.id, row.user_id, agentId),
+    agentId: readString(source.agent_id, source.id, source.user_id, agentId),
     name: fields.name || "Agent",
     email: fields.email || "-",
     phone: fields.phone || "-",
@@ -808,13 +837,13 @@ export async function getAdminAgentDetail(agentId: string): Promise<AdminAgentDe
     lga: fields.lga || "-",
     status,
     farmersOnboarded:
-      readString(row.farmers_onboarded, row.total_farmers_registered, row.total_farmers, 0) || "0",
+      readString(source.farmers_onboarded, source.total_farmers_registered, source.total_farmers, 0) || "0",
     gender: gender || "-",
-    registrationDate: formatDate(readString(row.created_at, row.registration_date)),
-    lastSync: readString(row.last_sync_at, row.last_sync) || "-",
-    lastActive: formatDate(readString(row.last_active_at, row.last_active, row.updated_at)),
-    avatarUrl: resolveAgentAvatarUrl(row),
-    verificationLabel: readString(row.verification_label) || mapVerificationLabel(status),
+    registrationDate: formatDate(readString(source.created_at, source.registration_date)),
+    lastSync: readString(source.last_sync_at, source.last_sync) || "-",
+    lastActive: formatDate(readString(source.last_active_at, source.last_active, source.updated_at)),
+    avatarUrl,
+    verificationLabel: readString(source.verification_label) || mapVerificationLabel(status),
   };
 }
 
@@ -1119,6 +1148,8 @@ function resolveAgentAvatarUrl(source: Record<string, unknown>) {
   const nestedAgent = asNestedRecord(source.agent);
   const nestedUser = asNestedRecord(source.user);
   const nestedProfile = asNestedRecord(source.profile);
+  const biometrics = asNestedRecord(source.biometrics);
+  const onboarding = asNestedRecord(source.onboarding);
   return (
     readString(
       source.avatar_url,
@@ -1131,8 +1162,14 @@ function resolveAgentAvatarUrl(source: Record<string, unknown>) {
       nestedAgent?.profile_photo,
       nestedProfile?.profile_photo_url,
       nestedProfile?.photo_url,
+      nestedProfile?.profile_photo,
       nestedUser?.profile_photo_url,
       nestedUser?.photo_url,
+      biometrics?.profile_photo_url,
+      biometrics?.photo_url,
+      biometrics?.profile_photo,
+      onboarding?.profile_photo_url,
+      onboarding?.profile_photo,
     ) || "/avatar-placeholder.svg"
   );
 }

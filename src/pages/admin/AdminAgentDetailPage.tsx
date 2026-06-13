@@ -36,6 +36,7 @@ function FieldRow({
 
 function stateDisplay(state: string) {
   const s = state.trim();
+  if (!s || s === "-") return "-";
   if (/state$/i.test(s)) return s;
   return `${s} state`;
 }
@@ -109,6 +110,11 @@ export default function AdminAgentDetailPage() {
 
   const agentBase = `/agents/${encodeURIComponent(agent.agentId)}`;
 
+  const hasPhoto =
+    agent.avatarUrl &&
+    agent.avatarUrl !== "/avatar-placeholder.svg" &&
+    !agent.avatarUrl.includes("placeholder");
+
   return (
     <div className="w-full space-y-6 pb-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -144,11 +150,17 @@ export default function AdminAgentDetailPage() {
         </div>
       </div>
 
-      <img
-        src={agent.avatarUrl}
-        alt=""
-        className="h-[100px] w-[100px] shrink-0 rounded-lg object-cover ring-1 ring-black/[0.06]"
-      />
+      {hasPhoto ? (
+        <img
+          src={agent.avatarUrl}
+          alt={agent.name}
+          className="h-[100px] w-[100px] shrink-0 rounded-lg object-cover ring-1 ring-black/[0.06]"
+        />
+      ) : (
+        <div className="flex h-[100px] w-[100px] shrink-0 items-center justify-center rounded-lg bg-[#F3F3F3] font-sans text-3xl font-semibold text-[#03624D] ring-1 ring-black/[0.06]">
+          {agent.name.slice(0, 1).toUpperCase()}
+        </div>
+      )}
 
       <div className="space-y-6">
         <section className={cardClass}>
