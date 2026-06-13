@@ -579,21 +579,37 @@ function derivePendingStatus(raw?: string) {
 }
 
 function mapPendingRow(item: Record<string, unknown>) {
+  const fieldAgent = asNestedRecord(item.field_agent);
+  const nestedUser = asNestedRecord(item.user);
+  const nestedFarmer = asNestedRecord(item.farmer);
+  const nestedProfile = asNestedRecord(item.profile);
+  const source = {
+    ...(fieldAgent || {}),
+    ...item,
+    user: nestedUser,
+    farmer: nestedFarmer,
+    profile: nestedProfile,
+    agent: fieldAgent,
+    field_agent: fieldAgent,
+  };
   const id = readString(
     item.agent_id,
     item.id,
     item.user_id,
-    item.farmer_id,
     item.upgrade_id,
     item.request_id,
+    fieldAgent?.id,
+    fieldAgent?.agent_id,
+    fieldAgent?.user_id,
+    nestedUser?.id,
+    nestedFarmer?.farmer_id,
+    item.farmer_id,
   );
   if (!id) return null;
-  const fields = resolveAgentDisplayFields(item);
-  const nestedUser = asNestedRecord(item.user);
-  const nestedProfile = asNestedRecord(item.profile);
-  const nestedFarmer = asNestedRecord(item.farmer);
+  const fields = resolveAgentDisplayFields(source);
   const gender = readString(
     item.gender,
+    fieldAgent?.gender,
     nestedUser?.gender,
     nestedProfile?.gender,
     nestedFarmer?.gender,
@@ -602,6 +618,7 @@ function mapPendingRow(item: Record<string, unknown>) {
     item.status,
     item.request_status,
     item.upgrade_status,
+    fieldAgent?.status,
     nestedProfile?.status,
     nestedFarmer?.status,
   );
@@ -611,6 +628,8 @@ function mapPendingRow(item: Record<string, unknown>) {
     item.requested_at,
     item.requested_date,
     item.date_created,
+    fieldAgent?.created_at,
+    fieldAgent?.updated_at,
   );
   return {
     id,
