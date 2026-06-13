@@ -775,7 +775,7 @@ export async function getAdminAgentDetail(agentId: string): Promise<AdminAgentDe
     registrationDate: formatDate(readString(row.created_at, row.registration_date)),
     lastSync: readString(row.last_sync_at, row.last_sync) || "-",
     lastActive: formatDate(readString(row.last_active_at, row.last_active, row.updated_at)),
-    avatarUrl: readString(row.avatar_url, row.profile_photo_url, row.photo_url) || "/avatar-placeholder.svg",
+    avatarUrl: resolveAgentAvatarUrl(row),
     verificationLabel: readString(row.verification_label) || mapVerificationLabel(status),
   };
 }
@@ -1077,31 +1077,74 @@ function mapSupportTicketFields(item: Record<string, unknown>) {
   };
 }
 
-function supportTicketNeedsAgentEnrichment(row: AdminSupportTicketRow) {
-  return row.agentName === "-" || row.agentPhone === "-" || row.agentEmail === "-";
+function resolveAgentAvatarUrl(source: Record<string, unknown>) {
+  const nestedAgent = asNestedRecord(source.agent);
+  const nestedUser = asNestedRecord(source.user);
+  const nestedProfile = asNestedRecord(source.profile);
+  return (
+    readString(
+      source.avatar_url,
+      source.profile_photo_url,
+      source.photo_url,
+      source.profile_photo,
+      source.photo,
+      nestedAgent?.profile_photo_url,
+      nestedAgent?.photo_url,
+      nestedAgent?.profile_photo,
+      nestedProfile?.profile_photo_url,
+      nestedProfile?.photo_url,
+      nestedUser?.profile_photo_url,
+      nestedUser?.photo_url,
+    ) || "/avatar-placeholder.svg"
+  );
+}
+
+async function resolveAgentForSupportTicket(
+  row: AdminSupportTicketRow,
+): Promise<AdminAgentDetail | null> {
+  const lookupIds = [...new Set([row.agentId, row.userId].filter((id) => id && id !== "-"))];
+  for (const lookupId of lookupIds) {
+    try {
+      return await getAdminAgentDetail(lookupId);
+    } catch {
+      /* try next id */
+    }
+  }
+
+  try {
+    const agents = await listAdminAgents();
+    const match = agents.find(
+      (agent) =>
+        agent.id === row.userId ||
+        agent.agentId === row.userId ||
+        agent.id === row.agentId ||
+        agent.agentId === row.agentId,
+    );
+    if (!match) return null;
+    return await getAdminAgentDetail(match.agentId);
+  } catch {
+    return null;
+  }
 }
 
 async function enrichSupportTicketRow(row: AdminSupportTicketRow): Promise<AdminSupportTicketRow> {
-  if (!supportTicketNeedsAgentEnrichment(row)) return row;
+  const needsAgent =
+    row.agentName === "-" || row.agentPhone === "-" || row.agentEmail === "-" || !row.agentAvatarUrl;
+  if (!needsAgent) return row;
 
-  const lookupId = readString(row.agentId, row.userId);
-  if (!lookupId || lookupId === "-") return row;
+  const agent = await resolveAgentForSupportTicket(row);
+  if (!agent) return row;
 
-  try {
-    const agent = await getAdminAgentDetail(lookupId);
-    const avatarUrl =
-      agent.avatarUrl && agent.avatarUrl !== "/avatar-placeholder.svg" ? agent.avatarUrl : row.agentAvatarUrl;
-    return {
-      ...row,
-      agentId: agent.agentId || row.agentId,
-      agentName: row.agentName === "-" ? agent.name : row.agentName,
-      agentPhone: row.agentPhone === "-" ? agent.phone : row.agentPhone,
-      agentEmail: row.agentEmail === "-" ? agent.email : row.agentEmail,
-      agentAvatarUrl: row.agentAvatarUrl || avatarUrl,
-    };
-  } catch {
-    return row;
-  }
+  const avatarUrl =
+    agent.avatarUrl && agent.avatarUrl !== "/avatar-placeholder.svg" ? agent.avatarUrl : row.agentAvatarUrl;
+  return {
+    ...row,
+    agentId: agent.agentId || row.agentId,
+    agentName: row.agentName === "-" ? agent.name : row.agentName,
+    agentPhone: row.agentPhone === "-" ? agent.phone : row.agentPhone,
+    agentEmail: row.agentEmail === "-" ? agent.email : row.agentEmail,
+    agentAvatarUrl: row.agentAvatarUrl || avatarUrl,
+  };
 }
 
 function mapSupportTicketStatus(value: string): AdminSupportTicketStatus {
