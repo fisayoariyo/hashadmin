@@ -121,10 +121,15 @@ export default function AdminReportedIssueDetailPage() {
 
   if (!ticket) return null;
 
-  const agentProfilePath =
-    ticket.agentId && ticket.agentId !== "-"
-      ? `/agents/${encodeURIComponent(ticket.agentId)}`
-      : null;
+  const agentLookupId =
+    ticket.agentId && ticket.agentId !== "-" ? ticket.agentId : ticket.userId !== "-" ? ticket.userId : "";
+  const agentProfilePath = agentLookupId
+    ? `/agents/${encodeURIComponent(agentLookupId)}`
+    : null;
+  const agentInitial =
+    ticket.agentName && ticket.agentName !== "-"
+      ? ticket.agentName.trim().charAt(0).toUpperCase()
+      : "?";
 
   return (
     <div className="w-full space-y-6 pb-4">
@@ -196,7 +201,7 @@ export default function AdminReportedIssueDetailPage() {
             />
           ) : (
             <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-[#F3F3F3] font-sans text-lg font-semibold text-[#03624D]">
-              {ticket.agentName.charAt(0).toUpperCase()}
+              {agentInitial}
             </div>
           )}
           <p className={valueInline}>

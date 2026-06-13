@@ -1012,24 +1012,55 @@ export type AdminSupportTicketRow = {
 };
 
 function mapSupportTicketFields(item: Record<string, unknown>) {
-  const agent = findObject(item, ["agent", "reporter", "user"]) as Record<string, unknown> | null;
+  const agent = findObject(item, [
+    "agent",
+    "reporter",
+    "user",
+    "created_by",
+    "submitted_by",
+  ]) as Record<string, unknown> | null;
+  const agentProfile = asNestedRecord(agent?.profile);
+  const agentUser = asNestedRecord(agent?.user);
+  const reporterFields = agent ? resolveAgentDisplayFields(agent) : null;
   return {
     issueType: readString(item.issue_type, item.type, item.category) || "Reported issue",
     description: readString(item.description, item.details) || "No description provided.",
     farmerId: readString(item.farmer_id) || "-",
-    userId: readString(item.user_id, item.reporter_id) || "-",
-    agentId: readString(item.agent_id, agent?.id, agent?.agent_id) || "-",
+    userId: readString(item.user_id, item.created_by_id, item.reporter_id, agent?.id, agent?.user_id) || "-",
+    agentId:
+      readString(
+        item.agent_id,
+        item.reporter_id,
+        agent?.agent_id,
+        agent?.id,
+        agent?.user_id,
+        item.user_id,
+      ) || "-",
     agentName:
       readString(
         item.agent_name,
         item.reporter_name,
+        reporterFields?.name,
         agent?.name,
         agent?.full_name,
         agent?.fullName,
+        agentUser?.full_name,
+        agentUser?.name,
+        agentProfile?.full_name,
+        agentProfile?.name,
       ) || "-",
     agentPhone:
-      readString(item.agent_phone, agent?.phone, agent?.phone_number, agent?.phoneNumber) || "-",
-    agentEmail: readString(item.agent_email, agent?.email) || "-",
+      readString(
+        item.agent_phone,
+        reporterFields?.phone,
+        agent?.phone,
+        agent?.phone_number,
+        agent?.phoneNumber,
+        agentUser?.phone,
+        agentUser?.phone_number,
+      ) || "-",
+    agentEmail:
+      readString(item.agent_email, reporterFields?.email, agent?.email, agentUser?.email) || "-",
     agentAvatarUrl:
       readString(
         item.agent_photo_url,
@@ -1037,11 +1068,40 @@ function mapSupportTicketFields(item: Record<string, unknown>) {
         agent?.profile_photo_url,
         agent?.avatar_url,
         agent?.photo_url,
+        agentProfile?.profile_photo_url,
+        agentProfile?.photo_url,
       ) || "",
-    state: readString(item.state, item.agent_state, agent?.state) || "-",
+    state: readString(item.state, item.agent_state, agent?.state, reporterFields?.state) || "-",
     status: mapSupportTicketStatus(readString(item.status)),
     createdAt: formatDate(readString(item.created_at, item.updated_at)),
   };
+}
+
+function supportTicketNeedsAgentEnrichment(row: AdminSupportTicketRow) {
+  return row.agentName === "-" || row.agentPhone === "-" || row.agentEmail === "-";
+}
+
+async function enrichSupportTicketRow(row: AdminSupportTicketRow): Promise<AdminSupportTicketRow> {
+  if (!supportTicketNeedsAgentEnrichment(row)) return row;
+
+  const lookupId = readString(row.agentId, row.userId);
+  if (!lookupId || lookupId === "-") return row;
+
+  try {
+    const agent = await getAdminAgentDetail(lookupId);
+    const avatarUrl =
+      agent.avatarUrl && agent.avatarUrl !== "/avatar-placeholder.svg" ? agent.avatarUrl : row.agentAvatarUrl;
+    return {
+      ...row,
+      agentId: agent.agentId || row.agentId,
+      agentName: row.agentName === "-" ? agent.name : row.agentName,
+      agentPhone: row.agentPhone === "-" ? agent.phone : row.agentPhone,
+      agentEmail: row.agentEmail === "-" ? agent.email : row.agentEmail,
+      agentAvatarUrl: row.agentAvatarUrl || avatarUrl,
+    };
+  } catch {
+    return row;
+  }
 }
 
 function mapSupportTicketStatus(value: string): AdminSupportTicketStatus {
@@ -1055,7 +1115,7 @@ function mapSupportTicketStatus(value: string): AdminSupportTicketStatus {
 
 export async function listSupportTickets(): Promise<AdminSupportTicketRow[]> {
   const payload = await sessionFetch("/admin/support/tickets");
-  return findArray(payload, ["data", "tickets", "items", "results", "records", "rows"])
+  const rows = findArray(payload, ["data", "tickets", "items", "results", "records", "rows"])
     .map((row) => {
       if (!row || typeof row !== "object") return null;
       const item = row as Record<string, unknown>;
@@ -1068,6 +1128,8 @@ export async function listSupportTickets(): Promise<AdminSupportTicketRow[]> {
       };
     })
     .filter(Boolean) as AdminSupportTicketRow[];
+
+  return Promise.all(rows.map((row) => enrichSupportTicketRow(row)));
 }
 
 function mapSupportTicketRow(row: unknown): AdminSupportTicketRow | null {
@@ -1087,7 +1149,7 @@ export async function getSupportTicketById(ticketId: string): Promise<AdminSuppo
   const row = findObject(payload, ["data", "ticket", "item", "record"]);
   const mapped = mapSupportTicketRow(row);
   if (!mapped) throw new AdminApiError("Support ticket not found.", 404, payload);
-  return mapped;
+  return enrichSupportTicketRow(mapped);
 }
 
 export async function updateSupportTicketStatus(
@@ -1101,7 +1163,7 @@ export async function updateSupportTicketStatus(
   });
   const row = findObject(payload, ["data", "ticket", "item", "record"]);
   const mapped = mapSupportTicketRow(row);
-  if (mapped) return mapped;
+  if (mapped) return enrichSupportTicketRow(mapped);
   return getSupportTicketById(ticketId);
 }
 
