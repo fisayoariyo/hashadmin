@@ -3,18 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { ChevronDown, Filter, MoreVertical } from "lucide-react";
 import {
   listSupportTickets,
+  updateSupportTicketStatus,
   type AdminSupportTicketRow,
   type AdminSupportTicketStatus,
 } from "@/lib/adminApi";
 
-const selectClass =
-  "h-9 min-w-[120px] cursor-pointer appearance-none rounded-lg border border-transparent bg-transparent py-2 pl-2 pr-8 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-white/70 focus:border-[#e4e4e4] focus:bg-white sm:min-w-[132px]";
+const filterPillClass =
+  "h-9 min-w-[112px] cursor-pointer appearance-none rounded-full border border-[#e4e4e4] bg-[#F3F3F3] py-2 pl-4 pr-9 font-sans text-sm text-brand-text-secondary outline-none transition hover:bg-[#ececec] focus:border-[#d4d4d4] focus:bg-white sm:min-w-[124px]";
 
 const tableGridClass =
   "grid min-w-[960px] grid-cols-[minmax(5rem,0.75fr)_minmax(8rem,1.1fr)_minmax(9rem,1.2fr)_minmax(7rem,1fr)_minmax(5rem,0.7fr)_minmax(5rem,0.75fr)_3rem] items-center gap-3";
 
 type StatusFilter = "all" | AdminSupportTicketStatus;
-type SortOption = "date-desc" | "date-asc" | "issue-id" | "agent-name";
+type SortOption = "default" | "date-desc" | "date-asc" | "issue-id" | "agent-name";
 
 function statusLabel(status: AdminSupportTicketStatus) {
   if (status === "In review") return "Pending";
@@ -53,12 +54,13 @@ export default function AdminReportedIssuesPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [issueTypeFilter, setIssueTypeFilter] = useState("all");
-  const [stateFilter, setStateFilter] = useState("all");
-  const [sortOption, setSortOption] = useState<SortOption>("date-desc");
+  const [sortOption, setSortOption] = useState<SortOption>("default");
   const [menuId, setMenuId] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminSupportTicketRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [loadMoreSteps, setLoadMoreSteps] = useState(0);
   const tableRef = useRef<HTMLDivElement>(null);
 
@@ -102,26 +104,18 @@ export default function AdminReportedIssuesPage() {
     [rows],
   );
 
-  const stateOptions = useMemo(
-    () => [
-      "all",
-      ...Array.from(new Set(rows.map((row) => row.state).filter((state) => state && state !== "-"))),
-    ],
-    [rows],
-  );
-
   const filteredRows = useMemo(
     () =>
       rows.filter((row) => {
         if (statusFilter !== "all" && row.status !== statusFilter) return false;
         if (issueTypeFilter !== "all" && row.issueType !== issueTypeFilter) return false;
-        if (stateFilter !== "all" && row.state !== stateFilter) return false;
         return true;
       }),
-    [rows, statusFilter, issueTypeFilter, stateFilter],
+    [rows, statusFilter, issueTypeFilter],
   );
 
   const sortedRows = useMemo(() => {
+    if (sortOption === "default") return filteredRows;
     return [...filteredRows].sort((a, b) => {
       if (sortOption === "issue-id") return a.id.localeCompare(b.id);
       if (sortOption === "agent-name") return a.agentName.localeCompare(b.agentName);
@@ -137,109 +131,101 @@ export default function AdminReportedIssuesPage() {
 
   useEffect(() => {
     setLoadMoreSteps(0);
-  }, [statusFilter, issueTypeFilter, stateFilter, sortOption]);
+  }, [statusFilter, issueTypeFilter, sortOption]);
+
+  const handleMarkResolved = async (row: AdminSupportTicketRow) => {
+    if (row.status === "Resolved") return;
+    setResolvingId(row.id);
+    setActionError("");
+    try {
+      const updated = await updateSupportTicketStatus(row.id, "Resolved");
+      setRows((current) => current.map((item) => (item.id === row.id ? updated : item)));
+      setMenuId(null);
+    } catch (resolveError) {
+      setActionError(
+        resolveError instanceof Error ? resolveError.message : "Could not mark issue as resolved.",
+      );
+    } finally {
+      setResolvingId(null);
+    }
+  };
 
   return (
     <div className="w-full space-y-5 pb-4">
-      <h2 className="font-display text-[20px] font-bold leading-7 text-brand-text-primary">
-        Reported Issues
-      </h2>
-
       {error ? <p className="font-sans text-sm text-red-600">{error}</p> : null}
+      {actionError ? <p className="font-sans text-sm text-red-600">{actionError}</p> : null}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <span className="inline-flex items-center gap-1.5 font-sans text-sm font-medium text-brand-text-secondary">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 inline-flex items-center gap-1.5 font-sans text-sm font-medium text-brand-text-secondary">
           <Filter size={18} className="shrink-0 text-brand-text-muted" strokeWidth={1.8} />
           Filter
         </span>
-        <div className="flex flex-wrap gap-2">
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-              className={selectClass}
-              aria-label="Status"
-            >
-              <option value="all">Status</option>
-              <option value="Open">Open</option>
-              <option value="In review">Pending</option>
-              <option value="Resolved">Resolved</option>
-            </select>
-            <ChevronDown
-              size={14}
-              strokeWidth={1.8}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
-              aria-hidden
-            />
-          </div>
-          <div className="relative">
-            <select
-              value={issueTypeFilter}
-              onChange={(event) => setIssueTypeFilter(event.target.value)}
-              className={selectClass}
-              aria-label="Issue type"
-            >
-              {issueTypeOptions.map((issueType) => (
-                <option key={issueType} value={issueType}>
-                  {issueType === "all" ? "Issue type" : issueType}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              strokeWidth={1.8}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
-              aria-hidden
-            />
-          </div>
-          <div className="relative">
-            <select
-              value={stateFilter}
-              onChange={(event) => setStateFilter(event.target.value)}
-              className={selectClass}
-              aria-label="State"
-            >
-              {stateOptions.map((state) => (
-                <option key={state} value={state}>
-                  {state === "all" ? "State" : state}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              strokeWidth={1.8}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
-              aria-hidden
-            />
-          </div>
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+            className={filterPillClass}
+            aria-label="Status"
+          >
+            <option value="all">Status</option>
+            <option value="Open">Open</option>
+            <option value="In review">Pending</option>
+            <option value="Resolved">Resolved</option>
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-brand-text-secondary">Sort by</span>
-          <div className="relative">
-            <select
-              value={sortOption}
-              onChange={(event) => setSortOption(event.target.value as SortOption)}
-              className={selectClass}
-              aria-label="Sort by"
-            >
-              <option value="date-desc">Date</option>
-              <option value="date-asc">Date (oldest)</option>
-              <option value="issue-id">Issue ID</option>
-              <option value="agent-name">Agent Name</option>
-            </select>
-            <ChevronDown
-              size={14}
-              strokeWidth={1.8}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-muted"
-              aria-hidden
-            />
-          </div>
+        <div className="relative">
+          <select
+            value={issueTypeFilter}
+            onChange={(event) => setIssueTypeFilter(event.target.value)}
+            className={filterPillClass}
+            aria-label="Issue type"
+          >
+            {issueTypeOptions.map((issueType) => (
+              <option key={issueType} value={issueType}>
+                {issueType === "all" ? "Issue type" : issueType}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sortOption}
+            onChange={(event) => setSortOption(event.target.value as SortOption)}
+            className={filterPillClass}
+            aria-label="Sort by"
+          >
+            <option value="default">Sort by</option>
+            <option value="date-desc">Date</option>
+            <option value="date-asc">Date (oldest)</option>
+            <option value="issue-id">Issue ID</option>
+            <option value="agent-name">Agent Name</option>
+          </select>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-text-muted"
+            aria-hidden
+          />
         </div>
       </div>
 
       <div ref={tableRef} className="overflow-x-auto overflow-y-visible">
         <div className="min-w-[960px]">
-          <div className={`${tableGridClass} px-5 py-3.5 text-left font-sans text-sm font-semibold text-brand-text-primary`}>
+          <div
+            className={`${tableGridClass} px-5 py-3.5 text-left font-sans text-sm font-semibold text-brand-text-primary`}
+          >
             <span>Issue ID</span>
             <span>Agent Name</span>
             <span>Farmer ID</span>
@@ -290,6 +276,15 @@ export default function AdminReportedIssuesPage() {
                         }}
                       >
                         View details
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={row.status === "Resolved" || resolvingId === row.id}
+                        className="block w-full px-4 py-3.5 text-left font-sans text-sm text-[#0f172a] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-45"
+                        onClick={() => handleMarkResolved(row)}
+                      >
+                        {resolvingId === row.id ? "Marking resolved..." : "Mark as resolved"}
                       </button>
                     </div>
                   ) : null}

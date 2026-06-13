@@ -1000,7 +1000,11 @@ export type AdminSupportTicketRow = {
   description: string;
   farmerId: string;
   userId: string;
+  agentId: string;
   agentName: string;
+  agentPhone: string;
+  agentEmail: string;
+  agentAvatarUrl: string;
   state: string;
   status: AdminSupportTicketStatus;
   createdAt: string;
@@ -1014,6 +1018,7 @@ function mapSupportTicketFields(item: Record<string, unknown>) {
     description: readString(item.description, item.details) || "No description provided.",
     farmerId: readString(item.farmer_id) || "-",
     userId: readString(item.user_id, item.reporter_id) || "-",
+    agentId: readString(item.agent_id, agent?.id, agent?.agent_id) || "-",
     agentName:
       readString(
         item.agent_name,
@@ -1022,6 +1027,17 @@ function mapSupportTicketFields(item: Record<string, unknown>) {
         agent?.full_name,
         agent?.fullName,
       ) || "-",
+    agentPhone:
+      readString(item.agent_phone, agent?.phone, agent?.phone_number, agent?.phoneNumber) || "-",
+    agentEmail: readString(item.agent_email, agent?.email) || "-",
+    agentAvatarUrl:
+      readString(
+        item.agent_photo_url,
+        agent?.profile_photo,
+        agent?.profile_photo_url,
+        agent?.avatar_url,
+        agent?.photo_url,
+      ) || "",
     state: readString(item.state, item.agent_state, agent?.state) || "-",
     status: mapSupportTicketStatus(readString(item.status)),
     createdAt: formatDate(readString(item.created_at, item.updated_at)),
