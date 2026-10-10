@@ -192,7 +192,35 @@ export default function AdminFarmerEditPage() {
   }
 
   return (
-    <div className="w-full space-y-5 pb-4">
+    <form
+      className="w-full space-y-5 pb-4"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const form = new FormData(e.currentTarget);
+        setSaving(true);
+        setError("");
+        try {
+          await updateFarmer(id, {
+            phone_number: String(form.get("phone") || "").trim() || undefined,
+            state_of_origin: stateOfOrigin || undefined,
+            lga: originLga || undefined,
+            residential_address: String(form.get("address") || "").trim() || undefined,
+            crop_type: String(form.get("crop") || "").trim() || undefined,
+            land_ownership: String(form.get("landOwnership") || "").trim() || undefined,
+            farm_location: String(form.get("farmLocation") || "").trim() || undefined,
+            soil_type: String(form.get("soil") || "").trim() || undefined,
+            next_of_kin_name: String(form.get("nokName") || "").trim() || undefined,
+            next_of_kin_phone: String(form.get("nokPhone") || "").trim() || undefined,
+            next_of_kin_relation: String(form.get("nokRel") || "").trim() || undefined,
+          });
+          navigate(back);
+        } catch (saveError) {
+          setError(saveError instanceof Error ? saveError.message : "Could not save farmer changes.");
+        } finally {
+          setSaving(false);
+        }
+      }}
+    >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <h2 className="flex items-center gap-2 font-display text-[20px] font-bold leading-6 text-brand-text-primary">
           <button
@@ -225,36 +253,7 @@ export default function AdminFarmerEditPage() {
         </div>
       </div>
 
-      <form
-        className="space-y-5"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const form = new FormData(e.currentTarget);
-          setSaving(true);
-          setError("");
-          try {
-            await updateFarmer(id, {
-              phone_number: String(form.get("phone") || "").trim() || undefined,
-              state_of_origin: stateOfOrigin || undefined,
-              lga: originLga || undefined,
-              residential_address: String(form.get("address") || "").trim() || undefined,
-              crop_type: String(form.get("crop") || "").trim() || undefined,
-              land_ownership: String(form.get("landOwnership") || "").trim() || undefined,
-              farm_location: String(form.get("farmLocation") || "").trim() || undefined,
-              soil_type: String(form.get("soil") || "").trim() || undefined,
-              next_of_kin_name: String(form.get("nokName") || "").trim() || undefined,
-              next_of_kin_phone: String(form.get("nokPhone") || "").trim() || undefined,
-              next_of_kin_relation: String(form.get("nokRel") || "").trim() || undefined,
-            });
-            navigate(back);
-          } catch (saveError) {
-            setError(saveError instanceof Error ? saveError.message : "Could not save farmer changes.");
-          } finally {
-            setSaving(false);
-          }
-        }}
-      >
-        {error ? <p className="font-sans text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="font-sans text-sm text-red-600">{error}</p> : null}
         <Section title="Contact Information">
           <div className={grid3}>
             <FieldBlock label="Phone number" required>
@@ -488,7 +487,6 @@ export default function AdminFarmerEditPage() {
             </FieldBlock>
           </div>
         </Section>
-      </form>
-    </div>
+    </form>
   );
 }
