@@ -11,6 +11,7 @@ import AdminAgentVerificationDetailPage from "@/pages/admin/AdminAgentVerificati
 import AdminAgentVerificationPage from "@/pages/admin/AdminAgentVerificationPage";
 import AdminAgentRequestsPage from "@/pages/admin/AdminAgentRequestsPage";
 import AdminAgentsPage from "@/pages/admin/AdminAgentsPage";
+import AdminAnalyticsPage from "@/pages/admin/AdminAnalyticsPage";
 import AdminCreateAdminPage from "@/pages/admin/AdminCreateAdminPage";
 import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
 import AdminFarmerDetailPage from "@/pages/admin/AdminFarmerDetailPage";
@@ -38,6 +39,7 @@ export default function App() {
         <Route element={<RequireAdminSession />}>
           <Route element={<AdminShellLayout />}>
             <Route path="/dashboard" element={<AdminDashboardPage />} />
+            <Route path="/analytics" element={<AdminAnalyticsPage />} />
             <Route path="/admins/create" element={<AdminCreateAdminPage />} />
             <Route path="/farmers" element={<AdminFarmersPage />} />
             <Route path="/farmers/:farmerId/edit" element={<AdminFarmerEditPage />} />

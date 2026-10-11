@@ -5,6 +5,7 @@ import AdminDesktopShell, {
 
 function activeNavFromPath(pathname: string): AdminShellNavKey {
   if (pathname.startsWith("/admins/create")) return "create-admin";
+  if (pathname.startsWith("/analytics")) return "analytics";
   if (pathname.startsWith("/farmers")) return "farmers";
   if (pathname.startsWith("/agents")) return "agents";
   if (pathname.startsWith("/agent-verification")) return "agent-verification";

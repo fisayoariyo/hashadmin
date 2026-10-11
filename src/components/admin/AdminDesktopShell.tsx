@@ -7,6 +7,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
+  BarChart2,
   ClipboardCheck,
   ClipboardList,
   Home,
@@ -26,6 +27,12 @@ export const ADMIN_NAV_LINKS = [
     label: "Dashboard",
     path: "/dashboard",
     kind: "home" as const,
+  },
+  {
+    key: "analytics",
+    label: "Analytics",
+    path: "/analytics",
+    kind: "barchart2" as const,
   },
   {
     key: "farmers",
@@ -159,6 +166,12 @@ export default function AdminDesktopShell({
                       />
                     ) : kind === "clipboard-list" ? (
                       <ClipboardList
+                        size={20}
+                        strokeWidth={isActive ? 2.1 : 1.9}
+                        className={isActive ? "text-white" : "text-[#030F0F]"}
+                      />
+                    ) : kind === "barchart2" ? (
+                      <BarChart2
                         size={20}
                         strokeWidth={isActive ? 2.1 : 1.9}
                         className={isActive ? "text-white" : "text-[#030F0F]"}

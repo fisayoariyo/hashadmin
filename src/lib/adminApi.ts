@@ -1310,3 +1310,229 @@ export async function replayOutbox(rows: Array<{ kind: string; payload: unknown 
     body: { rows },
   });
 }
+
+// ─── Analytics / Reports ──────────────────────────────────────────────────────
+
+export type ReportBucket = { label: string; value: number };
+
+export type ReportSummary = {
+  total_farmers: number;
+  verified_farmers: number;
+  pending_farmers: number;
+  enrolled_this_month: number;
+  enrolled_last_month: number;
+  enrolling_agents: number;
+  states_covered: number;
+  lgas_covered: number;
+  average_age: number;
+  average_farming_experience_years: number;
+};
+
+export type FarmerOverviewReport = {
+  summary: ReportSummary;
+  gender: ReportBucket[];
+  age_groups: ReportBucket[];
+  marital_status: ReportBucket[];
+  education_level: ReportBucket[];
+  status: ReportBucket[];
+  farming_experience: ReportBucket[];
+  by_state: ReportBucket[];
+  top_primary_crops: ReportBucket[];
+};
+
+export type TrendPoint = {
+  period: string;    // "YYYY-MM-DD"
+  count: number;
+  cumulative: number;
+};
+
+export type TrendReport = {
+  interval: string;
+  points: TrendPoint[];
+};
+
+export type LocationRow = {
+  label: string;
+  male: number;
+  female: number;
+  other: number;
+  total: number;
+};
+
+export type LocationReport = {
+  level: "state" | "lga";
+  state: string;
+  rows: LocationRow[];
+};
+
+export type AgentPerformance = {
+  agent_id: string;
+  full_name: string;
+  state: string;
+  lga: string;
+  farmers_enrolled: number;
+};
+
+export type FarmerOverviewParams = {
+  state?: string;
+  lga?: string;
+  gender?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+};
+
+export type TrendParams = {
+  interval?: "day" | "week" | "month";
+  state?: string;
+  from?: string;
+  to?: string;
+};
+
+export type LocationParams = {
+  state?: string;
+  gender?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+};
+
+export type TopAgentsParams = {
+  limit?: number;
+  state?: string;
+  lga?: string;
+  from?: string;
+  to?: string;
+};
+
+function buildQueryString(params: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  return query.toString();
+}
+
+export async function getReportFarmerOverview(
+  params: FarmerOverviewParams = {},
+): Promise<FarmerOverviewReport> {
+  const qs = buildQueryString(params as Record<string, string | undefined>);
+  const payload = await sessionFetch(
+    qs ? `/superadmin/reports/farmers/overview?${qs}` : "/superadmin/reports/farmers/overview",
+  );
+  const root = (payload && typeof payload === "object" && !Array.isArray(payload)
+    ? payload
+    : {}) as Record<string, unknown>;
+  const data = (root.data && typeof root.data === "object" ? root.data : root) as Record<string, unknown>;
+
+  const toArr = (v: unknown): ReportBucket[] =>
+    Array.isArray(v)
+      ? (v as Array<Record<string, unknown>>).map((b) => ({
+          label: readString(b.label),
+          value: typeof b.value === "number" ? b.value : Number(b.value) || 0,
+        }))
+      : [];
+
+  const rawSummary = (data.summary &&
+    typeof data.summary === "object" &&
+    !Array.isArray(data.summary)
+      ? data.summary
+      : data) as Record<string, unknown>;
+
+  const n = (k: string) =>
+    typeof rawSummary[k] === "number" ? (rawSummary[k] as number) : Number(rawSummary[k]) || 0;
+
+  return {
+    summary: {
+      total_farmers: n("total_farmers"),
+      verified_farmers: n("verified_farmers"),
+      pending_farmers: n("pending_farmers"),
+      enrolled_this_month: n("enrolled_this_month"),
+      enrolled_last_month: n("enrolled_last_month"),
+      enrolling_agents: n("enrolling_agents"),
+      states_covered: n("states_covered"),
+      lgas_covered: n("lgas_covered"),
+      average_age: n("average_age"),
+      average_farming_experience_years: n("average_farming_experience_years"),
+    },
+    gender: toArr(data.gender),
+    age_groups: toArr(data.age_groups),
+    marital_status: toArr(data.marital_status),
+    education_level: toArr(data.education_level),
+    status: toArr(data.status),
+    farming_experience: toArr(data.farming_experience),
+    by_state: toArr(data.by_state),
+    top_primary_crops: toArr(data.top_primary_crops),
+  };
+}
+
+export async function getReportTrend(params: TrendParams = {}): Promise<TrendReport> {
+  const qs = buildQueryString(params as Record<string, string | undefined>);
+  const payload = await sessionFetch(
+    qs ? `/superadmin/reports/farmers/trend?${qs}` : "/superadmin/reports/farmers/trend",
+  );
+  const root = (payload && typeof payload === "object" && !Array.isArray(payload)
+    ? payload
+    : {}) as Record<string, unknown>;
+  const data = (root.data && typeof root.data === "object" ? root.data : root) as Record<string, unknown>;
+  const points = Array.isArray(data.points)
+    ? (data.points as Array<Record<string, unknown>>).map((p) => ({
+        period: readString(p.period),
+        count: typeof p.count === "number" ? p.count : Number(p.count) || 0,
+        cumulative: typeof p.cumulative === "number" ? p.cumulative : Number(p.cumulative) || 0,
+      }))
+    : [];
+  return { interval: readString(data.interval) || "month", points };
+}
+
+export async function getReportFarmerLocations(
+  params: LocationParams = {},
+): Promise<LocationReport> {
+  const qs = buildQueryString(params as Record<string, string | undefined>);
+  const payload = await sessionFetch(
+    qs
+      ? `/superadmin/reports/farmers/locations?${qs}`
+      : "/superadmin/reports/farmers/locations",
+  );
+  const root = (payload && typeof payload === "object" && !Array.isArray(payload)
+    ? payload
+    : {}) as Record<string, unknown>;
+  const data = (root.data && typeof root.data === "object" ? root.data : root) as Record<string, unknown>;
+  const rows = Array.isArray(data.rows)
+    ? (data.rows as Array<Record<string, unknown>>).map((r) => ({
+        label: readString(r.label),
+        male: typeof r.male === "number" ? r.male : Number(r.male) || 0,
+        female: typeof r.female === "number" ? r.female : Number(r.female) || 0,
+        other: typeof r.other === "number" ? r.other : Number(r.other) || 0,
+        total: typeof r.total === "number" ? r.total : Number(r.total) || 0,
+      }))
+    : [];
+  return {
+    level: readString(data.level) === "lga" ? "lga" : "state",
+    state: readString(data.state),
+    rows,
+  };
+}
+
+export async function getReportTopAgents(
+  params: TopAgentsParams = {},
+): Promise<AgentPerformance[]> {
+  const qs = buildQueryString(params as Record<string, string | number | undefined>);
+  const payload = await sessionFetch(
+    qs ? `/superadmin/reports/agents/top?${qs}` : "/superadmin/reports/agents/top",
+  );
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as Record<string, unknown>)?.data)
+      ? ((payload as Record<string, unknown>).data as unknown[])
+      : [];
+  return (list as Array<Record<string, unknown>>).map((a) => ({
+    agent_id: readString(a.agent_id, a.id),
+    full_name: readString(a.full_name, a.name) || "Agent",
+    state: readString(a.state) || "-",
+    lga: readString(a.lga) || "-",
+    farmers_enrolled:
+      typeof a.farmers_enrolled === "number" ? a.farmers_enrolled : Number(a.farmers_enrolled) || 0,
+  }));
+}
+
